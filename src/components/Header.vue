@@ -10,7 +10,15 @@
         <div class="collapse navbar-collapse">
           <ul class="navbar-nav me-auto my-2 my-lg-0">
           </ul>
-          <button class="btn btn-outline-success" v-on:click="login">Connect Wallet</button>
+          <span v-if="loggedIn">
+            <div class="btn-group">
+              <button class="btn btn-outline-success">{{ truncateAddress(wallet.address) }}</button>
+              <button class="btn btn-outline-success" v-on:click="logout">Disconnect</button>
+            </div>
+          </span>
+          <span v-else>
+            <button class="btn btn-outline-success" v-on:click="login">Connect Wallet</button>
+          </span>
         </div>
       </div>
     </nav>
@@ -22,6 +30,7 @@
 
 <script>
 import * as Auth from '../util/auth';
+import * as Tezos from '../util/tezos';
 
 import { isLoggedIn } from 'axios-jwt';
 
@@ -29,10 +38,24 @@ export default {
   name: 'Header',
   data: () => ({
     loggedIn: isLoggedIn(),
+    wallet: { address: '' }
   }),
+  mounted: async function () {
+    this.wallet = await Tezos.getActiveAccount();
+  },
   methods: {
     login: async function() {
       this.loggedIn = await Auth.login();
+      this.wallet = await Tezos.getActiveAccount();
+      console.log(this.wallet);
+    },
+    logout: async function() {
+      await Auth.logout();
+      location.reload();
+    },
+    truncateAddress: function(address) {
+      if (address === undefined) { return ''; }
+      return address.substr(0, 5) + '...' + address.substr(address.length - 5, 5);
     }
   }
 }
