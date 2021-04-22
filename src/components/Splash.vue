@@ -56,10 +56,7 @@
 
 <script>
 export default {
-  name: 'Splash',
-  props: {
-    msg: String
-  }
+  name: 'Splash'
 }
 </script>
 
