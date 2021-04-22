@@ -3,8 +3,7 @@ header.masthead {
   overflow: hidden;
   padding-top: calc(7rem + 72px);
   padding-bottom: 7rem;
-  background: initial;
-  background-image: url('assets/img/peppers.jpg');
+  background-image: url('../img/peppers.jpg');
   background-repeat: no-repeat;
   background-position: center center;
   background-attachment: scroll;
