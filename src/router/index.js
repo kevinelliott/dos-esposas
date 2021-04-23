@@ -3,11 +3,13 @@ import { isLoggedIn } from 'axios-jwt';
 import * as Auth from '../util/auth';
 
 // Components
+import PageNotFound from '../components/PageNotFound';
 import Splash from '../components/Splash';
 // User
 import Profile from '../components/user/Profile';
+// Content
+import Ingredients from '../components/ingredients/Ingredients';
 
-const PageNotFound = Splash;
 
 // Routes
 const routes = [
@@ -15,8 +17,10 @@ const routes = [
   { path: '/', name: 'Splash', component: Splash },
   // User
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
+  // Content
+  { path: '/ingredients', name: 'Ingredients', component: Ingredients },
   // Not Found
-  { path: '/:pathMatch(.*)*', name: 'not-found', component: PageNotFound }
+  { path: '/:pathMatch(.*)*', name: 'PageNotFound', component: PageNotFound }
 ];
 
 const router = createRouter({
@@ -43,7 +47,7 @@ router.afterEach(async (to/*, from*/) => {
   }
   window.ga('set', 'page', to.path);
   window.ga('send', 'pageview');
-  console.log('Router =>', {to: to, from: from});
+  // console.log('Router =>', {to: to, from: from});
 });
 
 export default router;

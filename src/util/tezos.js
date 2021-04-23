@@ -1,5 +1,6 @@
 import { BeaconWallet } from '@taquito/beacon-wallet';
 import { TezosToolkit } from '@taquito/taquito';
+import { tzip12 } from '@taquito/tzip12';
 
 const Tzip12Module = require('@taquito/tzip12').Tzip12Module;
 const Tzip16Module = require('@taquito/tzip16').Tzip16Module;
@@ -68,10 +69,30 @@ const getActiveAccount = async () => {
     return activeAccount;
 };
 
+const getContract = async (contractAddress) => {
+  return await Tezos.contract.at(contractAddress, tzip12);
+}
+
+const getTokenMetadata = async (contractAddress, tokenId) => {
+  return await Tezos.contract.at(contractAddress, tzip12)
+    .then(contract => {
+      console.log(`Fetching token_metadata for ${contractAddress}:${tokenId}...`);
+      return contract.tzip12().getTokenMetadata(tokenId);
+    })
+    .then (tokenMetadata => {
+      // let token = JSON.stringify(tokenMetadata, null, 2);
+      console.log(tokenMetadata);
+      return tokenMetadata;
+    })
+    .catch(error => console.log(`Error: ${JSON.stringify(error, null, 2)}`));
+}
+
 export {
     Tezos,
     wallet,
     getActiveAccount,
+    getContract,
+    getTokenMetadata,
     signLoginRequest,
     signMessage
 };
