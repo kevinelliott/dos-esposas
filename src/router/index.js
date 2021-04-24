@@ -8,7 +8,7 @@ import Splash from '../components/Splash';
 // User
 import Profile from '../components/user/Profile';
 // Content
-import Ingredients from '../components/ingredients/Ingredients';
+import Menu from '../components/menu/Menu';
 
 
 // Routes
@@ -18,7 +18,7 @@ const routes = [
   // User
   { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
   // Content
-  { path: '/ingredients', name: 'Ingredients', component: Ingredients },
+  { path: '/menu', name: 'Menu', component: Menu },
   // Not Found
   { path: '/:pathMatch(.*)*', name: 'PageNotFound', component: PageNotFound }
 ];

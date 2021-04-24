@@ -1,20 +1,20 @@
 <template>
   <div class="card h-100">
-    <div class="row g-0 h-100" v-if="ingredientData.name">
+    <div class="row g-0 h-100" v-if="itemData.name">
       <div class="col-md-4">
-        <img :src="ingredientData.thumbnailUri" class="card-img-top p-3" :alt="ingredientData.name">
+        <img :src="itemData.thumbnailUri" class="card-img-top p-3" :alt="itemData.name">
       </div>
       <div class="col-md-8">
         <div class="card-body">
           <h4 class="card-title">
-            <div class="text-truncate" :title="ingredientData.name">{{ ingredientData.name }}</div>
-            <div class="fw-light">{{ ingredientData.symbol }}</div>
+            <div class="text-truncate" :title="itemData.name">{{ itemData.name }}</div>
+            <div class="fw-light">{{ itemData.symbol }}</div>
           </h4>
           <div class="text-muted fw-light">TOTAL SUPPLY</div>
-          <div class="mb-2">{{ shiftDownBy(ingredientData.totalSupply, ingredientData.decimals).toLocaleString() }}</div>
+          <div class="mb-2">{{ shiftDownBy(itemData.totalSupply, itemData.decimals).toLocaleString() }}</div>
           <div class="text-muted fw-light">CONTRACT</div>
           <div class="text-truncate">
-            <small><span :title="ingredientData.contractAddress">{{ ingredientData.contractAddress }}</span></small>
+            <small><span :title="itemData.contractAddress">{{ itemData.contractAddress }}</span></small>
           </div>
         </div>
       </div>
@@ -39,34 +39,33 @@ import * as Tezos from '../../util/tezos';
 import store from '../../util/storage';
 
 export default {
-  name: 'IngredientCard',
+  name: 'MenuItemCard',
   props: {
-    ingredient: Object
+    item: Object
   },
   data: () => ({
     api: api,
-    ingredientData: {},
+    itemData: {},
     loggedIn: Auth.isLoggedIn(),
     store: store
   }),
   mounted: async function () {
-    let item = this.store.store.existsItem(this.ingredient.contract);
-    if (item) {
-      console.log('cached item', item);
-      this.ingredientData = item;
+    let itemData = this.store.store.existsItem(this.item.contract);
+    if (itemData) {
+      console.log('cached item', itemData);
+      this.itemData = itemData;
     } else {
       console.log('getting from tezos');
-      this.ingredientData = await this.getIngredientFromTezos(this.ingredient);
-      this.store.store.update(this.ingredient.contract, this.ingredientData);
+      this.itemData = await this.getMenuItemFromTezos(this.item);
+      this.store.store.update(this.item.contract, this.itemData);
     }
   },
   methods: {
-    getIngredientFromTezos: async function () {
-      console.log(this.ingredient);
+    getMenuItemFromTezos: async function () {
       let data = {};
-      data['contractAddress'] = this.ingredient.contract;
+      data['contractAddress'] = this.item.contract;
 
-      let contract = await Tezos.getTokenContract(this.ingredient.contract);
+      let contract = await Tezos.getTokenContract(this.item.contract);
       console.log("token contract", contract);
 
       contract.storage()
@@ -84,6 +83,7 @@ export default {
         data['decimals'] = metadata.decimals;
         data['description'] = metadata.description;
         data['thumbnailUri'] = metadata.thumbnailUri;
+        data['lastRefreshedAt'] = new Date();
       }
 
       return data;
