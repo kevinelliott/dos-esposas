@@ -3,10 +3,44 @@
     <div class="masthead-content">
       <div class="container">
         <h1 class="masthead-heading mb-0 linear-gradient">Hola, amigos!</h1>
-        <h2 class="masthead-subheading mb-0">Coming soon.</h2><a class="btn btn-primary btn-xl rounded-pill mt-5" role="button" href="#">Learn More</a>
+        <h2 class="masthead-subheading mb-0">Coming soon.</h2>
       </div>
     </div>
   </header>
+  <div class="section-email-list p-5 text-center">
+    <div>
+      <div class="container">
+        <div id="mc_embed_signup">
+          <form action="https://restaurant.us1.list-manage.com/subscribe/post?u=939a9d2a0c4ee66e364cb8ef7&amp;id=5ed757d3fb" method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate" target="_blank" novalidate>
+            <div id="mc_embed_signup_scroll">
+              <div class="row">
+                <div class="mc-field-group col">
+                  <div class="row mt-2 justify-content-center">
+                    <div class="col-7">
+                      <input type="email" value="" name="EMAIL" class="required email form-control form-control-lg rounded-pill p-4" id="mce-EMAIL" placeholder="Email address">
+                    </div>
+                    <div class="col-auto">
+                      <input type="submit" value="Get Notified" name="subscribe" id="mc-embedded-subscribe" class="mt-1 btn btn-light btn-xl rounded-pill">
+                    </div>
+                  </div>
+                  <div class="mt-4 row justify-content-center">
+                    <div class="col-12">
+                      <h3 class="text-light fw-lighter">Enter your email address and we'll keep you informed.</h3>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="mce-responses" class="clear">
+                <div class="response" id="mce-error-response" style="display:none"></div>
+                <div class="response" id="mce-success-response" style="display:none"></div>
+              </div>
+              <div style="position: absolute; left: -5000px;" aria-hidden="true"><input type="text" name="b_939a9d2a0c4ee66e364cb8ef7_5ed757d3fb" tabindex="-1" value=""></div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
   <section>
       <div class="container">
           <div class="row align-items-center">
@@ -62,6 +96,10 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+.section-email-list {
+  background-color: #198754;
+}
+
 .linear-gradient {
   animation: flow 10s ease-in-out infinite;
   background: linear-gradient(-60deg, #e93388, #e48deb, #e43b49, #f1c9bd);
