@@ -2,7 +2,7 @@
   <header class="text-center text-white masthead">
     <div class="masthead-content">
       <div class="container">
-        <h1 class="masthead-heading mb-0">Hola, amigos!</h1>
+        <h1 class="masthead-heading mb-0 linear-gradient">Hola, amigos!</h1>
         <h2 class="masthead-subheading mb-0">Coming soon.</h2><a class="btn btn-primary btn-xl rounded-pill mt-5" role="button" href="#">Learn More</a>
       </div>
     </div>
@@ -62,4 +62,24 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+.linear-gradient {
+  animation: flow 10s ease-in-out infinite;
+  background: linear-gradient(-60deg, #e93388, #e48deb, #e43b49, #f1c9bd);
+  background-size: 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes flow {
+  0% {
+    background-position: 0 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
 </style>
