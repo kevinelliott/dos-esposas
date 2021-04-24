@@ -69,16 +69,12 @@ const getActiveAccount = async () => {
     return activeAccount;
 };
 
-const getContract = async (contractAddress) => {
+const getTokenContract = async (contractAddress) => {
   return await Tezos.contract.at(contractAddress, tzip12);
 }
 
-const getTokenMetadata = async (contractAddress, tokenId) => {
-  return await Tezos.contract.at(contractAddress, tzip12)
-    .then(contract => {
-      console.log(`Fetching token_metadata for ${contractAddress}:${tokenId}...`);
-      return contract.tzip12().getTokenMetadata(tokenId);
-    })
+const getTokenMetadata = async (tokenContract, tokenId) => {
+  return await tokenContract.tzip12().getTokenMetadata(tokenId)
     .then (tokenMetadata => {
       // let token = JSON.stringify(tokenMetadata, null, 2);
       console.log(tokenMetadata);
@@ -91,7 +87,7 @@ export {
     Tezos,
     wallet,
     getActiveAccount,
-    getContract,
+    getTokenContract,
     getTokenMetadata,
     signLoginRequest,
     signMessage

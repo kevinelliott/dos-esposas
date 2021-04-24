@@ -6,26 +6,8 @@
         At Dos Esposas Restaurante we acquire and use only the finest, freshest, and highest quality ingredients. And because they are the best they keep their value and make great meals.
       </p>
       <div class="row row-cols-1 row-cols-md-3 g-4">
-        <div class="col" v-for="ingredient in ingredients" :key="ingredient.name">
-          <div class="card h-100" style="width: 18rem;">
-            <img :src="ingredient.thumbnailUri" class="card-img-top p-5" :alt="ingredient.name">
-            <div class="card-body">
-              <h3 class="card-title">
-                <div class="row">
-                  <div class="col text-truncate" :title="ingredient.name">{{ ingredient.name }}</div>
-                  <div class="col text-end text-muted">{{ ingredient.symbol }}</div>
-                </div>
-              </h3>
-              <p class="card-text text-justify fw-light" style="text-align: justify;">
-                {{ ingredient.description }}
-              </p>
-            </div>
-            <div class="card-footer">
-              <div class="card-text text-truncate">
-                <small class="text-muted"><strong>CONTRACT</strong> <span :title="ingredient.contractAddress">{{ ingredient.contractAddress }}</span></small>
-              </div>
-            </div>
-          </div>
+        <div class="col" v-for="ingredient in availableIngredients" :key="ingredient.name">
+          <IngredientCard :ingredient="ingredient" />
         </div>
       </div>
     </div>
@@ -35,10 +17,12 @@
 <script>
 import * as api from '../../util/api';
 import * as Auth from '../../util/auth';
-import * as Tezos from '../../util/tezos';
+
+import IngredientCard from './IngredientCard';
 
 export default {
   name: 'Ingredients',
+  components: { IngredientCard },
   data: () => ({
     api: api,
     availableIngredients: [],
@@ -47,7 +31,6 @@ export default {
     wallet: { address: '' }
   }),
   mounted: async function () {
-    this.wallet = await Tezos.getActiveAccount();
     this.getIngredients();
   },
   methods: {
@@ -57,15 +40,6 @@ export default {
         data = resp.data;
         console.log('data', data);
         if (data.available !== undefined) {
-          data.available.forEach(async (ingredient) => {
-            console.log(ingredient);
-            let metadata = await Tezos.getTokenMetadata(ingredient.contract, 0);
-            metadata['contractAddress'] = ingredient.contract;
-            console.log('token metadata', metadata);
-            if (metadata !== undefined) {
-              this.ingredients.push(metadata);
-            }
-          });
           this.availableIngredients = data.available;
         }
       }
