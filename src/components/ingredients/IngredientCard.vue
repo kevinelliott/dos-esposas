@@ -11,7 +11,7 @@
             <div class="fw-light">{{ ingredientData.symbol }}</div>
           </h4>
           <div class="text-muted fw-light">TOTAL SUPPLY</div>
-          <div class="mb-2">{{ ingredientData.totalSupply.shiftedBy(ingredientData.decimals * -1).toFormat() }}</div>
+          <div class="mb-2">{{ shiftDownBy(ingredientData.totalSupply, ingredientData.decimals).toLocaleString() }}</div>
           <div class="text-muted fw-light">CONTRACT</div>
           <div class="text-truncate">
             <small><span :title="ingredientData.contractAddress">{{ ingredientData.contractAddress }}</span></small>
@@ -36,6 +36,7 @@
 import * as api from '../../util/api';
 import * as Auth from '../../util/auth';
 import * as Tezos from '../../util/tezos';
+import store from '../../util/storage';
 
 export default {
   name: 'IngredientCard',
@@ -45,10 +46,19 @@ export default {
   data: () => ({
     api: api,
     ingredientData: {},
-    loggedIn: Auth.isLoggedIn()
+    loggedIn: Auth.isLoggedIn(),
+    store: store
   }),
   mounted: async function () {
-    this.ingredientData = await this.getIngredientFromTezos(this.ingredient);
+    let item = this.store.store.existsItem(this.ingredient.contract);
+    if (item) {
+      console.log('cached item', item);
+      this.ingredientData = item;
+    } else {
+      console.log('getting from tezos');
+      this.ingredientData = await this.getIngredientFromTezos(this.ingredient);
+      this.store.store.update(this.ingredient.contract, this.ingredientData);
+    }
   },
   methods: {
     getIngredientFromTezos: async function () {
@@ -77,6 +87,9 @@ export default {
       }
 
       return data;
+    },
+    shiftDownBy(number, decimals) {
+      return number / Math.pow(10, decimals);
     }
   }
 }

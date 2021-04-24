@@ -17,6 +17,7 @@
 <script>
 import * as api from '../../util/api';
 import * as Auth from '../../util/auth';
+import store from '../../util/storage';
 
 import IngredientCard from './IngredientCard';
 
@@ -28,6 +29,7 @@ export default {
     availableIngredients: [],
     ingredients: [],
     loggedIn: Auth.isLoggedIn(),
+    store: store,
     wallet: { address: '' }
   }),
   mounted: async function () {
