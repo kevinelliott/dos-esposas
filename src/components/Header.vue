@@ -9,6 +9,7 @@
         </button>
         <div class="collapse navbar-collapse">
           <ul class="navbar-nav me-auto my-2 my-lg-0">
+            <router-link to="/menu" class="text-decoration-none">Menu</router-link>
           </ul>
           <span v-if="loggedIn">
             <div class="btn-group">
