@@ -2,7 +2,7 @@
   <header>
     <nav class="navbar navbar-dark navbar-expand-lg fixed-top navbar-custom">
       <div class="container">
-        <a class="navbar-brand" href="#">Dos Esposas Restaurante</a>
+        <a class="navbar-brand" href="/">Dos Esposas Restaurante</a>
         <button class="navbar-toggler" data-bs-toggle="collapse">
           <span class="visually-hidden">Toggle navigation</span>
           <span class="navbar-toggler-icon"></span>
