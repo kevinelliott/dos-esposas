@@ -1,5 +1,5 @@
 <template>
-  <div class="card h-100">
+  <div class="card menu-item-card h-100">
     <div class="row g-0 h-100" v-if="itemData.name">
       <div class="col-md-4">
         <img :src="itemData.thumbnailUri" class="card-img-top p-3" :alt="itemData.name">
@@ -96,10 +96,14 @@ export default {
 </script>
 
 <style scoped>
-.ingredient {
-  width: 200px;
-  height: 200px;
-  padding: 20px;
-  background-color: #ff0000;
+.menu-item-card:hover {
+  background-color: #ee0979;
+  color: #fff;
+  border-color: #ee0979;
+  cursor: pointer;
+}
+
+.menu-item-card:hover .text-muted {
+  color: #33081d !important;
 }
 </style>
