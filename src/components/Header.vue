@@ -3,11 +3,11 @@
     <nav class="navbar navbar-dark navbar-expand-lg fixed-top navbar-custom">
       <div class="container">
         <a class="navbar-brand" href="/">Dos Esposas Restaurante</a>
-        <button class="navbar-toggler" data-bs-toggle="collapse">
+        <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
           <span class="visually-hidden">Toggle navigation</span>
           <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse">
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav me-auto my-2 my-lg-0">
             <router-link to="/menu" class="text-decoration-none">Menu</router-link>
           </ul>

@@ -6,18 +6,27 @@
         At Dos Esposas Restaurante we acquire and use only the finest, freshest, and highest quality ingredients. And because they are the best they keep their value and make great meals.
       </p>
       <div class="row">
-        <div class="col-2 col-sm-3 col-md-2">
-          <div class="list-group" id="list-tab" role="tablist">
-            <a class="list-group-item list-group-item-action active" id="list-ingredients-list" data-bs-toggle="list" href="#list-ingredients" role="tab" aria-controls="ingredients">Ingredients</a>
-            <a class="list-group-item list-group-item-action" id="list-entrees-list" data-bs-toggle="list" href="#list-entrees" role="tab" aria-controls="entrees">Entrées</a>
-            <a class="list-group-item list-group-item-action" id="list-drinks-list" data-bs-toggle="list" href="#list-drinks" role="tab" aria-controls="drinks">Drinks</a>
-            <a class="list-group-item list-group-item-action" id="list-deserts-list" data-bs-toggle="list" href="#list-deserts" role="tab" aria-controls="deserts">Deserts</a>
-          </div>
+        <div class="col-xs-12 col-sm-12 col-md-2 g-2">
+          <ul class="nav nav-pills mb-3 flex-md-column" id="horizontal-list-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="list-ingredients-list" data-bs-toggle="pill" data-bs-target="#list-ingredients" type="button" role="tab" aria-controls="ingredients" aria-selected="true">Ingredients</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="list-entrees-list" data-bs-toggle="pill" data-bs-target="#list-entrees" type="button" role="tab" aria-controls="entrees" aria-selected="false">Entrées</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="list-drinks-list" data-bs-toggle="pill" data-bs-target="#list-drinks" type="button" role="tab" aria-controls="drinks" aria-selected="false">Drinks</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="list-deserts-list" data-bs-toggle="pill" data-bs-target="#list-deserts" type="button" role="tab" aria-controls="deserts" aria-selected="false">Deserts</button>
+            </li>
+          </ul>
         </div>
-        <div class="col-10 col-sm-9 col-md-10">
+        <div class="w-100 d-none d-xs-block"></div>
+        <div class="col-xs-12 col-sm-12 col-md-10">
           <div class="tab-content" id="nav-tabContent">
             <div class="tab-pane fade show active" id="list-ingredients" role="tabpanel" aria-labelledby="list-ingredients-list">
-              <div class="row row-cols-1 row-cols-md-3 g-4">
+              <div class="row row-cols-xs-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
                 <div class="col" v-for="item in items.ingredients" :key="item.contractAddress">
                   <MenuItemCard :item="item" />
                 </div>
@@ -99,5 +108,12 @@ export default {
   height: 200px;
   padding: 20px;
   background-color: #ff0000;
+}
+
+@media (max-width: 767.98px) {
+  .nav-pills > li {
+    float: none;
+    display: block;
+  }
 }
 </style>
