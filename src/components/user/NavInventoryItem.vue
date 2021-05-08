@@ -9,7 +9,7 @@
         </div>
         <div class="col text-end">
           <h5 class='mb-0'>{{ item.symbol }}</h5>
-          <div>{{ new Number(item.balance).toLocaleString() }}</div>
+          <div>{{ (new Number(item.balance) /  Math.pow(10, new Number(item.decimals))).toLocaleString() }}</div>
         </div>
       </div>
     </a>
