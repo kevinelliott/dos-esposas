@@ -10,7 +10,7 @@
       <p class="text-center text-muted mb-4">
         We <span class="text-danger">&#x2764;</span> Tezos!
       </p>
-      <p class="text-center text-white m-0 small">Copyright&nbsp;© Dos Esposas Restaurant Group 2021</p>
+      <p class="text-center text-white m-0 small">Copyright&nbsp;© Dos Esposas Restaurante &amp; PRIME Restaurant Group 2021</p>
     </div>
   </footer>
 </template>
