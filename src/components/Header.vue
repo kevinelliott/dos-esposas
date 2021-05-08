@@ -14,7 +14,7 @@
           <span v-if="loggedIn">
             <div class="btn-group">
               <button class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">{{ truncateAddress(wallet.address) }}</button>
-              <ul class="dropdown-menu dropdown-menu-end">
+              <ul class="dropdown-menu dropdown-menu-end" style="overflow-y: auto; max-height: 80vh;">
                 <li><h6 class="dropdown-header">Your Inventory</h6></li>
                 <div
                   v-for="item in walletAssets"
