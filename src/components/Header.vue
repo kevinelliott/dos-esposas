@@ -13,7 +13,16 @@
           </ul>
           <span v-if="loggedIn">
             <div class="btn-group">
-              <button class="btn btn-outline-success">{{ truncateAddress(wallet.address) }}</button>
+              <button class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">{{ truncateAddress(wallet.address) }}</button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">Your Inventory</h6></li>
+                <div
+                  v-for="item in walletAssets"
+                  :key="`token_${item.contract}`"
+                  >
+                  <NavInventoryItem :item="item" />
+                </div>
+              </ul>
               <button class="btn btn-outline-success" v-on:click="logout">Disconnect</button>
             </div>
           </span>
@@ -30,21 +39,57 @@
 </template>
 
 <script>
+import * as api from '../util/api';
 import * as Auth from '../util/auth';
 import * as Tezos from '../util/tezos';
 
 import { isLoggedIn } from 'axios-jwt';
 
+import NavInventoryItem from './user/NavInventoryItem';
+
 export default {
   name: 'Header',
+  components: { NavInventoryItem },
   data: () => ({
+    api: api,
     loggedIn: isLoggedIn(),
-    wallet: { address: '' }
+    menuItems: [],
+    menuItemsWhitelist: [],
+    wallet: { address: '' },
+    walletAssets: []
   }),
   mounted: async function () {
+    await this.getMenu();
     this.wallet = await Tezos.getActiveAccount();
+    await this.getWalletAssets();
   },
   methods: {
+    getMenu: async function () {
+      let resp = await this.api.request.get('/menu'), data;
+      if (resp.status == 200 && resp.data) {
+        data = resp.data;
+        console.log('data', data);
+        if (data.items !== undefined) {
+          this.menuItems = data.items;
+        }
+      }
+      this.menuItemsWhitelist = [];
+      this.menuItems.available.forEach((item) => {
+        this.menuItemsWhitelist.push(item.contract);
+      });
+      return;
+    },
+    getWalletAssets: async function() {
+      this.walletAssets = [];
+      const assets = await Tezos.getWalletAssets(this.wallet.address);
+      await assets.forEach(async (asset) => {
+        if (this.menuItemsWhitelist.includes(asset.contract)) {
+          console.log('asset', asset);
+          this.walletAssets.push(asset);
+        }
+      });
+      return;
+    },
     login: async function() {
       this.loggedIn = await Auth.login();
       this.wallet = await Tezos.getActiveAccount();
@@ -63,4 +108,7 @@ export default {
 </script>
 
 <style scoped>
+.dropdown-menu {
+  width: 300px !important;
+}
 </style>
