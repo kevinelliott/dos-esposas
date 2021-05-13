@@ -8,7 +8,7 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
-    "@airgap/beacon-sdk": "^2.2.4",
+    "@airgap/beacon-sdk": "^2.2.6",
     "@taquito/beacon-wallet": "^8.1.1",
     "@taquito/ledger-signer": "^8.1.1",
     "@taquito/signer": "^8.1.1",
@@ -21,7 +21,8 @@
     "dotenv": "^8.2.0",
     "vue": "^3.0.0",
     "vue-gtag-next": "^1.14.0",
-    "vue-router": "4"
+    "vue-router": "4",
+    "vue3-jazzicon": "^0.1.2"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~4.5.0",

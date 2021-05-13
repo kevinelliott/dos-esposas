@@ -13,8 +13,15 @@
           </ul>
           <span v-if="loggedIn">
             <div class="btn-group">
-              <button class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">{{ truncateAddress(wallet.address) }}</button>
-              <ul class="dropdown-menu dropdown-menu-end" style="overflow-y: auto; max-height: 80vh;">
+              <button class="btn btn-outline-success dropdown-toggle d-flex align-items-center" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">
+                <Jazzicon class="d-inline" :address="wallet.address" :shape-count="5" :diameter="25" />
+                <div class="p-1 d-inline">{{ truncateAddress(wallet.address) }}</div>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <a href="#" class="dropdown-item" v-on:click="logout">Disconnect</a>
+                </li>
+                <li class="dropdown-divider"></li>
                 <li><h6 class="dropdown-header">Your Inventory</h6></li>
                 <div
                   v-for="item in walletAssets"
@@ -23,7 +30,6 @@
                   <NavInventoryItem :item="item" />
                 </div>
               </ul>
-              <button class="btn btn-outline-success" v-on:click="logout">Disconnect</button>
             </div>
           </span>
           <span v-else>
@@ -43,13 +49,14 @@ import * as api from '../util/api';
 import * as Auth from '../util/auth';
 import * as Tezos from '../util/tezos';
 
+import Jazzicon from 'vue3-jazzicon/src/components';
 import { isLoggedIn } from 'axios-jwt';
 
 import NavInventoryItem from './user/NavInventoryItem';
 
 export default {
   name: 'Header',
-  components: { NavInventoryItem },
+  components: { Jazzicon, NavInventoryItem },
   data: () => ({
     api: api,
     loggedIn: isLoggedIn(),

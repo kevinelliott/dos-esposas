@@ -2,10 +2,23 @@
 # yarn lockfile v1
 
 
-"@airgap/beacon-sdk@^2.2.3", "@airgap/beacon-sdk@^2.2.4":
+"@airgap/beacon-sdk@^2.2.3":
   version "2.2.4"
   resolved "https://registry.yarnpkg.com/@airgap/beacon-sdk/-/beacon-sdk-2.2.4.tgz#580fc062eb4b29049174466b0301ac2ac8523f92"
   integrity sha512-2TRZTOCCA9Dz0mWjZu0RKxTLVYdL5KkVpg+ULG02CVXKS/l048T2vJ2VkxGmZkkhxzJ3ER6tYBUiM8+TBRkERA==
+  dependencies:
+    "@types/chrome" "0.0.115"
+    "@types/libsodium-wrappers" "0.7.7"
+    axios "0.21.1"
+    bignumber.js "9.0.0"
+    bs58check "2.1.2"
+    libsodium-wrappers "0.7.8"
+    qrcode-generator "1.4.4"
+
+"@airgap/beacon-sdk@^2.2.6":
+  version "2.2.6"
+  resolved "https://registry.yarnpkg.com/@airgap/beacon-sdk/-/beacon-sdk-2.2.6.tgz#92c4eebf5f17e796c3f6c0ce0fb0567af14991fc"
+  integrity sha512-8makwjrcgrP6dfR0OVQPT7LgYdcKFNW5Jc1urca0RMdTIGzxJlDmSDKrd7ha8doIy4oN+maWtCYAFGPTphHcWg==
   dependencies:
     "@types/chrome" "0.0.115"
     "@types/libsodium-wrappers" "0.7.7"
@@ -2917,7 +2930,7 @@ color-string@^1.5.4:
     color-name "^1.0.0"
     simple-swizzle "^0.2.2"
 
-color@^3.0.0:
+color@^3.0.0, color@^3.1.0:
   version "3.1.3"
   resolved "https://registry.yarnpkg.com/color/-/color-3.1.3.tgz#ca67fb4e7b97d611dcde39eceed422067d91596e"
   integrity sha512-xgXAcTHa2HeFCGLE9Xs/R82hujGtu9Jd9x4NW3T34+OMs7VoPsjwzRczKHvTAHeJwWFwX5j15+MgAppE8ztObQ==
@@ -5936,6 +5949,11 @@ merge2@^1.2.3:
   resolved "https://registry.yarnpkg.com/merge2/-/merge2-1.4.1.tgz#4368892f885e907455a6fd7dc55c0c9d404990ae"
   integrity sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==
 
+mersenne-twister@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/mersenne-twister/-/mersenne-twister-1.1.0.tgz#f916618ee43d7179efcf641bec4531eb9670978a"
+  integrity sha1-+RZhjuQ9cXnvz2Qb7EUx65Zwl4o=
+
 methods@~1.1.2:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/methods/-/methods-1.1.2.tgz#5529a4d67654134edcc5266656835b0f851afcee"
@@ -8913,6 +8931,16 @@ vue-template-es2015-compiler@^1.9.0:
   version "1.9.1"
   resolved "https://registry.yarnpkg.com/vue-template-es2015-compiler/-/vue-template-es2015-compiler-1.9.1.tgz#1ee3bc9a16ecbf5118be334bb15f9c46f82f5825"
   integrity sha512-4gDntzrifFnCEvyoO8PqyJDmguXgVPxKiIxrBKjIowvL9l+N66196+72XVYR8BBf1Uv1Fgt3bGevJ+sEmxfZzw==
+
+vue3-jazzicon@^0.1.2:
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/vue3-jazzicon/-/vue3-jazzicon-0.1.2.tgz#7d5bc1c7cc1c11365954e5639e90a4ef60894813"
+  integrity sha512-m1do5WyL2uMUziPA5oKoEBInvwS4eT7yfNm8v5InT2CfKKIGJYabVPBhpbRTkdSnKG022LCW6jTSvcG33I/adA==
+  dependencies:
+    color "^3.1.0"
+    core-js "^3.6.5"
+    mersenne-twister "^1.1.0"
+    vue "^3.0.0"
 
 vue@^3.0.0:
   version "3.0.11"
