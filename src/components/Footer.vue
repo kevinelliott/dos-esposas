@@ -12,6 +12,11 @@
         <strong>tz1Vb19E2Hh4JcerACeF1AJPkPSL63d5KAcF</strong> or
         <strong>dos-esposas.tez</strong>!
       </p>
+      <p class="text-center text-white">
+        Have junk tokens you don't want anymore? Send to
+        <strong>tz1Wq2Y9Fn2kAByDaCtkw14avAbAroJaatnC</strong> or
+        <strong>dumpster.tez</strong> and any proceeds from liquidations go to support continued Tezos related development!
+      </p>
       <p class="text-center text-muted mb-4">
         We <span class="text-danger">&#x2764;</span> Tezos!
       </p>
