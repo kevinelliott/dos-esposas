@@ -9,6 +9,9 @@
         <div class="col-xs-12 col-sm-12 col-md-2 g-2">
           <ul class="nav nav-pills mb-3 flex-md-column" id="horizontal-list-tab" role="tablist">
             <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="list-crops-list" data-bs-toggle="pill" data-bs-target="#list-crops" type="button" role="tab" aria-controls="crops" aria-selected="true">Crops</button>
+            </li>
+            <li class="nav-item" role="presentation">
               <button class="nav-link active" id="list-ingredients-list" data-bs-toggle="pill" data-bs-target="#list-ingredients" type="button" role="tab" aria-controls="ingredients" aria-selected="true">Ingredients</button>
             </li>
             <li class="nav-item" role="presentation">
@@ -25,6 +28,13 @@
         <div class="w-100 d-none d-xs-block"></div>
         <div class="col-xs-12 col-sm-12 col-md-10">
           <div class="tab-content" id="nav-tabContent">
+            <div class="tab-pane fade show active" id="list-crops" role="tabpanel" aria-labelledby="list-crops-list">
+              <div class="row row-cols-xs-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+                <div class="col" v-for="item in items.crops" :key="item.contractAddress">
+                  <MenuItemCard :item="item" />
+                </div>
+              </div>
+            </div>
             <div class="tab-pane fade show active" id="list-ingredients" role="tabpanel" aria-labelledby="list-ingredients-list">
               <div class="row row-cols-xs-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
                 <div class="col" v-for="item in items.ingredients" :key="item.contractAddress">
