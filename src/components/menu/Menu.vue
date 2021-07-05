@@ -12,7 +12,7 @@
               <button class="nav-link active" id="list-crops-list" data-bs-toggle="pill" data-bs-target="#list-crops" type="button" role="tab" aria-controls="crops" aria-selected="true">Crops</button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="list-ingredients-list" data-bs-toggle="pill" data-bs-target="#list-ingredients" type="button" role="tab" aria-controls="ingredients" aria-selected="true">Ingredients</button>
+              <button class="nav-link" id="list-ingredients-list" data-bs-toggle="pill" data-bs-target="#list-ingredients" type="button" role="tab" aria-controls="ingredients" aria-selected="true">Ingredients</button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="list-entrees-list" data-bs-toggle="pill" data-bs-target="#list-entrees" type="button" role="tab" aria-controls="entrees" aria-selected="false">Entrées</button>
