@@ -35,7 +35,7 @@
                 </div>
               </div>
             </div>
-            <div class="tab-pane fade show active" id="list-ingredients" role="tabpanel" aria-labelledby="list-ingredients-list">
+            <div class="tab-pane fade show" id="list-ingredients" role="tabpanel" aria-labelledby="list-ingredients-list">
               <div class="row row-cols-xs-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
                 <div class="col" v-for="item in items.ingredients" :key="item.contractAddress">
                   <MenuItemCard :item="item" />
