@@ -14,10 +14,29 @@ type BeaconOperationClient = {
   requestOperation: (request: {
     operationDetails: unknown[];
   }) => Promise<{ transactionHash: string }>;
+  transport?: Promise<BeaconTransport>;
+  multiTabChannel?: BeaconMultiTabChannel;
+  [key: PropertyKey]: unknown;
 };
 
 type BeaconWalletProvider = WalletProvider & {
   client?: BeaconOperationClient;
+};
+
+type BeaconTransport = {
+  send: (...args: unknown[]) => unknown;
+  [key: PropertyKey]: unknown;
+};
+
+type BeaconMultiTabChannel = {
+  postMessage: (...args: unknown[]) => unknown;
+  [key: PropertyKey]: unknown;
+};
+
+const guardedOverride = Symbol("guardedOverride");
+
+type GuardedOverride = {
+  [guardedOverride]: () => unknown;
 };
 
 export type WalletOperationSession = {
@@ -59,6 +78,115 @@ export function assertWalletOperation({
   assertDisplayedWallet(account, session.address, expectedNetwork);
 }
 
+function bindGuardedObject<T extends object>(
+  target: T,
+  overrides: Partial<Record<PropertyKey, unknown | GuardedOverride>>,
+): T {
+  return new Proxy(target, {
+    get(currentTarget, property, receiver) {
+      if (Object.prototype.hasOwnProperty.call(overrides, property)) {
+        const override = overrides[property];
+        if (
+          typeof override === "object" &&
+          override !== null &&
+          guardedOverride in override
+        ) {
+          return (override as GuardedOverride)[guardedOverride]();
+        }
+        return override;
+      }
+      const value = Reflect.get(currentTarget, property, receiver);
+      return typeof value === "function" ? value.bind(receiver) : value;
+    },
+  });
+}
+
+function dynamicOverride(getValue: () => unknown): GuardedOverride {
+  return { [guardedOverride]: getValue };
+}
+
+function guardBeaconClient(
+  client: BeaconOperationClient,
+  initialAccount: ActiveAccount,
+  assertSession: (account?: ActiveAccount) => void,
+): BeaconOperationClient {
+  let operationAccount = initialAccount;
+  const expectedAddress = initialAccount.address;
+
+  const assertOperationRequest = (request: unknown) => {
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      !("sourceAddress" in request) ||
+      request.sourceAddress !== expectedAddress
+    ) {
+      throw new Error(
+        "The Beacon operation source does not match the reviewed wallet account.",
+      );
+    }
+    assertSession(operationAccount);
+  };
+
+  const guardTransport = (transport: BeaconTransport) =>
+    bindGuardedObject(transport, {
+      send: (...args: unknown[]) => {
+        assertSession(operationAccount);
+        return transport.send(...args);
+      },
+    });
+
+  const guardMultiTabChannel = (channel: BeaconMultiTabChannel) =>
+    bindGuardedObject(channel, {
+      postMessage: (...args: unknown[]) => {
+        assertSession(operationAccount);
+        return channel.postMessage(...args);
+      },
+    });
+
+  const proxy = bindGuardedObject(client, {
+    getActiveAccount: async () => {
+      const account = await client.getActiveAccount();
+      assertSession(account);
+      if (!account) {
+        throw new Error(
+          "The Beacon wallet is not initialized. Connect it and try again.",
+        );
+      }
+      operationAccount = account;
+      return account;
+    },
+    transport: dynamicOverride(() =>
+      client.transport?.then(guardTransport),
+    ),
+    multiTabChannel: dynamicOverride(() =>
+      client.multiTabChannel
+        ? guardMultiTabChannel(client.multiTabChannel)
+        : undefined,
+    ),
+    makeRequest: (request: unknown, ...args: unknown[]) => {
+      assertOperationRequest(request);
+      const makeRequest = Reflect.get(client, "makeRequest");
+      if (typeof makeRequest !== "function") {
+        throw new Error(
+          "The Beacon wallet request transport is unavailable. Reconnect the wallet and try again.",
+        );
+      }
+      return Reflect.apply(makeRequest, proxy, [request, ...args]);
+    },
+    makeRequestBC: (request: unknown, ...args: unknown[]) => {
+      assertOperationRequest(request);
+      const makeRequestBC = Reflect.get(client, "makeRequestBC");
+      if (typeof makeRequestBC !== "function") {
+        throw new Error(
+          "The Beacon wallet broadcast transport is unavailable. Reconnect the wallet and try again.",
+        );
+      }
+      return Reflect.apply(makeRequestBC, proxy, [request, ...args]);
+    },
+  });
+  return proxy;
+}
+
 export function guardWalletProvider(
   wallet: WalletProvider,
   assertSession: (account?: ActiveAccount) => void,
@@ -89,7 +217,12 @@ export function guardWalletProvider(
             );
           }
 
-          const { transactionHash } = await client.requestOperation({
+          const guardedClient = guardBeaconClient(
+            client,
+            account,
+            assertSession,
+          );
+          const { transactionHash } = await guardedClient.requestOperation({
             operationDetails: params,
           });
           return transactionHash;

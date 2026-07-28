@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 import {
   assertWalletOperation,
@@ -7,6 +8,16 @@ import {
 } from "../lib/wallet-operation.ts";
 import { TezosToolkit, type WalletProvider } from "@taquito/taquito";
 
+const beaconRequire = createRequire(import.meta.url);
+const { DAppClient } = beaconRequire("@ecadlabs/beacon-dapp") as {
+  DAppClient: {
+    prototype: {
+      requestOperation: (request: {
+        operationDetails: unknown[];
+      }) => Promise<{ transactionHash: string }>;
+    };
+  };
+};
 const operationRequestScope = "operation_request";
 
 const accountA = {
@@ -212,13 +223,19 @@ for (const requestKind of [
     const client = {
       getActiveAccount: async () => {
         accountReads += 1;
-        accountReadStarted();
-        await accountReadGate;
+        if (accountReads === 2) {
+          accountReadStarted();
+          await accountReadGate;
+        }
         return account;
       },
-      requestOperation: async () => {
+      requestOperation: DAppClient.prototype.requestOperation,
+      makeRequest: async () => {
         walletRequests += 1;
-        return { transactionHash: "operation-hash" };
+        return {
+          message: { transactionHash: "operation-hash" },
+          connectionInfo: {},
+        };
       },
     };
     const wallet = {
@@ -258,30 +275,41 @@ for (const requestKind of [
     releaseAccountRead();
 
     await assert.rejects(request, /changed while preparing/);
-    assert.equal(accountReads, 1);
+    assert.equal(accountReads, 2);
     assert.equal(walletRequests, 0);
   });
 }
 
-test("delegates a stable Beacon operation exactly once after final account validation", async () => {
+test("delegates a stable real Beacon operation exactly once after final account validation", async () => {
   let walletRequests = 0;
   const account = {
     ...accountA,
     scopes: [operationRequestScope],
   };
-  const wallet = {
-    client: {
-      getActiveAccount: async () => account,
-      requestOperation: async ({
-        operationDetails,
-      }: {
-        operationDetails: unknown[];
-      }) => {
-        walletRequests += 1;
-        assert.deepEqual(operationDetails, [{ kind: "transaction" }]);
-        return { transactionHash: "operation-hash" };
-      },
+  const client = {
+    getActiveAccount: async () => account,
+    requestOperation: DAppClient.prototype.requestOperation,
+    analytics: { track: () => undefined },
+    sendMetrics: () => undefined,
+    buildPayload: async () => ({}),
+    checkMakeRequest: async () => true,
+    makeRequest: async (request: {
+      sourceAddress?: string;
+      operationDetails?: unknown[];
+    }) => {
+      walletRequests += 1;
+      assert.equal(request.sourceAddress, accountA.address);
+      assert.deepEqual(request.operationDetails, [{ kind: "transaction" }]);
+      return {
+        message: { transactionHash: "operation-hash" },
+        connectionInfo: {},
+      };
     },
+    notifySuccess: async () => undefined,
+    getWalletInfo: async () => ({}),
+  };
+  const wallet = {
+    client,
     sendOperations: async () => {
       throw new Error("The unguarded Beacon path must not run.");
     },
@@ -308,6 +336,110 @@ test("delegates a stable Beacon operation exactly once after final account valid
   assert.equal(operationHash, "operation-hash");
   assert.equal(walletRequests, 1);
 });
+
+for (const dispatchKind of ["transport", "broadcast"] as const) {
+  test(`blocks drift at Beacon's final ${dispatchKind} dispatch`, async () => {
+    let revision = 1;
+    let account = {
+      ...accountA,
+      scopes: [operationRequestScope],
+    };
+    let releaseDispatch: () => void = () => undefined;
+    let dispatchStarted: () => void = () => undefined;
+    const dispatchGate = new Promise<void>((resolve) => {
+      releaseDispatch = resolve;
+    });
+    const dispatchEntered = new Promise<void>((resolve) => {
+      dispatchStarted = resolve;
+    });
+    let sends = 0;
+    let posts = 0;
+
+    const client = {
+      getActiveAccount: async () => account,
+      requestOperation: DAppClient.prototype.requestOperation,
+      analytics: { track: () => undefined },
+      sendMetrics: () => undefined,
+      buildPayload: async () => ({}),
+      checkMakeRequest: async () => dispatchKind === "transport",
+      transport: Promise.resolve({
+        send: (..._args: unknown[]) => {
+          void _args;
+          sends += 1;
+        },
+      }),
+      multiTabChannel: {
+        postMessage: (..._args: unknown[]) => {
+          void _args;
+          posts += 1;
+        },
+      },
+      makeRequest: async function (request: unknown) {
+        dispatchStarted();
+        await dispatchGate;
+        const transport = await this.transport;
+        await transport.send(request);
+        return {
+          message: { transactionHash: "operation-hash" },
+          connectionInfo: {},
+        };
+      },
+      makeRequestBC: async function (request: unknown) {
+        dispatchStarted();
+        await dispatchGate;
+        this.multiTabChannel.postMessage(request);
+        return {
+          message: { transactionHash: "operation-hash" },
+          connectionInfo: {},
+        };
+      },
+      runRequestErrorSideEffects: async (
+        request: unknown,
+        error: unknown,
+        logId: string,
+      ) => {
+        void request;
+        void error;
+        console.timeEnd(logId);
+      },
+      notifySuccess: async () => undefined,
+      getWalletInfo: async () => ({}),
+    };
+    const wallet = {
+      client,
+      sendOperations: async () => {
+        throw new Error("The unguarded Beacon path must not run.");
+      },
+    } as unknown as WalletProvider;
+    const session = captureWalletOperation({
+      revision,
+      requestedAddress: accountA.address,
+      account,
+      expectedNetwork: "shadownet",
+    });
+    const guardedWallet = guardWalletProvider(wallet, (activeAccount) => {
+      assertWalletOperation({
+        session,
+        currentRevision: revision,
+        account: activeAccount,
+        expectedNetwork: "shadownet",
+      });
+    });
+
+    const request = guardedWallet.sendOperations([{ kind: "transaction" }]);
+    await dispatchEntered;
+    revision += 1;
+    account = {
+      ...accountB,
+      scopes: [operationRequestScope],
+    };
+    releaseDispatch();
+
+    await assert.rejects(request, /changed while preparing/);
+    assert.equal(sends, 0);
+    assert.equal(posts, 0);
+  });
+}
 
 test("fails closed when the final Beacon client boundary is unavailable", async () => {
   let walletRequests = 0;
