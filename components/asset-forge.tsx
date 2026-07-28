@@ -98,7 +98,9 @@ export function AssetForge() {
       setPhase("wallet");
       const hash = await action();
       setPhase("cooling");
-      setNotice(`${label} struck. Cooling the new issue...`);
+      setNotice(
+        `${label} submitted. Waiting for applied chain confirmation...`,
+      );
       await actionDelay(interfaceTimings.forgeCool);
       setNotice(`${label} submitted: ${hash}`);
       setReceipt({

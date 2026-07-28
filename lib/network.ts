@@ -18,6 +18,7 @@ const mainnet = {
   faucetUrl: "",
   assetContract: "",
   contractCodeHash: "",
+  contractPolicyHash: "",
   legacyContract: "",
   migrationContract:
     process.env.NEXT_PUBLIC_MIGRATION_CONTRACT?.trim() ?? "",
@@ -28,6 +29,8 @@ const shadownetAssetContract =
   process.env.NEXT_PUBLIC_TESTNET_ASSET_CONTRACT?.trim() ?? "";
 const shadownetContractCodeHash =
   process.env.NEXT_PUBLIC_TESTNET_CONTRACT_CODE_HASH?.trim() ?? "";
+const shadownetContractPolicyHash =
+  process.env.NEXT_PUBLIC_TESTNET_POLICY_HASH?.trim() ?? "";
 
 const shadownet = {
   id: "shadownet" as const,
@@ -41,6 +44,7 @@ const shadownet = {
   faucetUrl: "https://faucet.shadownet.teztnets.com",
   assetContract: shadownetAssetContract,
   contractCodeHash: shadownetContractCodeHash,
+  contractPolicyHash: shadownetContractPolicyHash,
   legacyContract:
     process.env.NEXT_PUBLIC_TESTNET_LEGACY_CONTRACT?.trim() ?? "",
   migrationContract:
@@ -56,7 +60,8 @@ export const networkConfig =
 export const hasTestnetDeployment =
   !networkConfig.isTestnet ||
   (validContract(networkConfig.assetContract) &&
-    /^-?\d+$/.test(networkConfig.contractCodeHash));
+    /^-?\d+$/.test(networkConfig.contractCodeHash) &&
+    /^[a-f0-9]{64}$/.test(networkConfig.contractPolicyHash));
 
 export const hasMigrationDeployment =
   validContract(networkConfig.migrationContract) &&

@@ -78,7 +78,9 @@ export function TestnetBanner({
         undefined,
       );
       setPhase("dispensing");
-      setNotice("Claim accepted. Stocking your pixel pantry...");
+      setNotice(
+        "Starter claim submitted. Waiting for applied chain confirmation...",
+      );
       await actionDelay(interfaceTimings.claimDispense);
       setNotice(`Starter claim submitted: ${hash}`);
       setReceipt({

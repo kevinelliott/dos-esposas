@@ -17,9 +17,13 @@ import {
 import { networkConfig } from "@/lib/network";
 import {
   activeWalletAddress,
-  assertDisplayedWallet,
 } from "@/lib/wallet-account";
 import type { ContractReadiness } from "@/lib/contract-readiness";
+import {
+  assertWalletOperation,
+  captureWalletOperation,
+  type WalletOperationSession,
+} from "@/lib/wallet-operation";
 
 type WalletStatus =
   | "idle"
@@ -137,6 +141,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<WalletStatus>("idle");
   const [error, setError] = useState("");
   const sessionRevision = useRef(0);
+  const inFlightOperations = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -146,14 +151,28 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       sessionRevision.current += 1;
       if (!nextAccount) {
         setAddress("");
-        setError("");
-        setStatus("idle");
+        if (inFlightOperations.current > 0) {
+          setError(
+            "The wallet disconnected while preparing a request. Review and submit it again.",
+          );
+          setStatus("error");
+        } else {
+          setError("");
+          setStatus("idle");
+        }
         return;
       }
       try {
         setAddress(activeWalletAddress(nextAccount, networkConfig.id));
-        setError("");
-        setStatus("idle");
+        if (inFlightOperations.current > 0) {
+          setError(
+            "The active wallet changed while preparing a request. Review and submit it again.",
+          );
+          setStatus("error");
+        } else {
+          setError("");
+          setStatus("idle");
+        }
       } catch (cause) {
         setAddress("");
         setError(
@@ -227,7 +246,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
 
     walletInstance = null;
-    setStatus("idle");
+    setStatus(inFlightOperations.current > 0 ? "error" : "idle");
   }, []);
 
   const toolkit = useCallback(async () => {
@@ -240,22 +259,62 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return tezos;
   }, []);
 
-  const assertCurrentAccount = useCallback(async () => {
-    const wallet = await getWallet();
-    const account = await wallet.client.getActiveAccount();
-    try {
-      assertDisplayedWallet(account, address, networkConfig.id);
-    } catch (cause) {
-      sessionRevision.current += 1;
-      try {
-        setAddress(activeWalletAddress(account, networkConfig.id));
-      } catch {
-        setAddress("");
+  const beginOperation = useCallback(() => {
+    inFlightOperations.current += 1;
+  }, []);
+
+  const finishOperation = useCallback(
+    (session: WalletOperationSession | null, nextStatus: WalletStatus) => {
+      inFlightOperations.current = Math.max(
+        0,
+        inFlightOperations.current - 1,
+      );
+      if (
+        inFlightOperations.current === 0 &&
+        (!session || sessionRevision.current === session.revision)
+      ) {
+        setStatus(nextStatus);
       }
-      throw cause;
-    }
-    return wallet;
-  }, [address]);
+    },
+    [],
+  );
+
+  const captureOperationSession = useCallback(
+    async (requestedAddress: string) => {
+      const revision = sessionRevision.current;
+      const wallet = await getWallet();
+      const account = await wallet.client.getActiveAccount();
+      const session = captureWalletOperation({
+        revision,
+        requestedAddress,
+        account,
+        expectedNetwork: networkConfig.id,
+      });
+      assertWalletOperation({
+        session,
+        currentRevision: sessionRevision.current,
+        account,
+        expectedNetwork: networkConfig.id,
+      });
+      return session;
+    },
+    [],
+  );
+
+  const assertOperationSession = useCallback(
+    async (session: WalletOperationSession) => {
+      const wallet = await getWallet();
+      const account = await wallet.client.getActiveAccount();
+      assertWalletOperation({
+        session,
+        currentRevision: sessionRevision.current,
+        account,
+        expectedNetwork: networkConfig.id,
+      });
+      return wallet;
+    },
+    [],
+  );
 
   const assertCompatibleContract = useCallback(
     async (contract: string, entrypoint: string) => {
@@ -293,18 +352,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         title: "Direct asset delivery",
         detail: `FA2 transfer to ${request.to.slice(0, 7)}...${request.to.slice(-5)}`,
       });
+      beginOperation();
       setStatus("sending");
       setError("");
+      let session: WalletOperationSession | null = null;
 
       try {
-        await assertCurrentAccount();
-        if (request.from !== address) {
+        session = await captureOperationSession(address);
+        if (request.from !== session.address) {
           throw new Error(
             "The transfer source does not match the active wallet account.",
           );
         }
         const tezos = await toolkit();
         const token = await tezos.wallet.at(request.contract);
+        await assertOperationSession(session);
         const operation = await token.methodsObject
           .transfer([
             {
@@ -320,21 +382,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           ])
           .send();
         submitActivity(activityId, operation.opHash);
-        setStatus("idle");
+        finishOperation(session, "idle");
         return operation.opHash;
       } catch (cause) {
         const message =
           cause instanceof Error ? cause.message : "Transfer failed.";
         setError(message);
-        setStatus("error");
+        finishOperation(session, "error");
         failActivity(activityId, message);
         throw cause;
       }
     },
     [
       address,
-      assertCurrentAccount,
+      assertOperationSession,
+      beginOperation,
+      captureOperationSession,
       failActivity,
+      finishOperation,
       startActivity,
       submitActivity,
       toolkit,
@@ -354,16 +419,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         ...activity,
         detail: `${entrypoint} on ${contract.slice(0, 7)}...${contract.slice(-5)}`,
       });
+      beginOperation();
       setStatus("sending");
       setError("");
+      let session: WalletOperationSession | null = null;
 
       try {
-        await assertCurrentAccount();
         await assertCompatibleContract(contract, entrypoint);
+        session = await captureOperationSession(address);
         const tezos = await toolkit();
         const target = await tezos.wallet.at(contract);
         const method = target.methodsObject[entrypoint];
         if (!method) throw new Error(`Missing ${entrypoint} entrypoint.`);
+        await assertOperationSession(session);
         const operation = await (parameter === undefined
           ? method()
           : method(parameter)
@@ -372,13 +440,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           mutez: true,
         });
         submitActivity(activityId, operation.opHash);
-        setStatus("idle");
+        finishOperation(session, "idle");
         return operation.opHash;
       } catch (cause) {
         const message =
           cause instanceof Error ? cause.message : "Transaction failed.";
         setError(message);
-        setStatus("error");
+        finishOperation(session, "error");
         failActivity(activityId, message);
         throw cause;
       }
@@ -386,8 +454,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [
       address,
       assertCompatibleContract,
-      assertCurrentAccount,
+      assertOperationSession,
+      beginOperation,
+      captureOperationSession,
       failActivity,
+      finishOperation,
       startActivity,
       submitActivity,
       toolkit,
@@ -409,17 +480,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             : activity.title,
         detail: `${requests.length} contract call${requests.length === 1 ? "" : "s"} in one wallet batch`,
       });
+      beginOperation();
       setStatus("sending");
       setError("");
+      let session: WalletOperationSession | null = null;
 
       try {
-        await assertCurrentAccount();
         for (const request of requests) {
           await assertCompatibleContract(
             request.contract,
             request.entrypoint,
           );
         }
+        session = await captureOperationSession(address);
         const tezos = await toolkit();
         const batch = tezos.wallet.batch();
         for (const request of requests) {
@@ -438,15 +511,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             },
           );
         }
+        await assertOperationSession(session);
         const operation = await batch.send();
         submitActivity(activityId, operation.opHash);
-        setStatus("idle");
+        finishOperation(session, "idle");
         return operation.opHash;
       } catch (cause) {
         const message =
           cause instanceof Error ? cause.message : "Transaction batch failed.";
         setError(message);
-        setStatus("error");
+        finishOperation(session, "error");
         failActivity(activityId, message);
         throw cause;
       }
@@ -454,8 +528,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [
       address,
       assertCompatibleContract,
-      assertCurrentAccount,
+      assertOperationSession,
+      beginOperation,
+      captureOperationSession,
       failActivity,
+      finishOperation,
       startActivity,
       submitActivity,
       toolkit,
@@ -471,38 +548,45 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         title: "Direct-offer signature",
         detail: "Signing portable offer terms without moving assets",
       });
+      beginOperation();
       setStatus("signing");
       setError("");
+      let session: WalletOperationSession | null = null;
 
       try {
-        const wallet = await assertCurrentAccount();
         const [{ SigningType }, { stringToBytes }] = await Promise.all([
           import("@taquito/beacon-wallet/types"),
           import("@taquito/utils"),
         ]);
+        session = await captureOperationSession(address);
+        const wallet = await assertOperationSession(session);
         const account = await wallet.client.getActiveAccount();
         const publicKey = account?.publicKey || (await wallet.getPK());
+        await assertOperationSession(session);
         const response = await wallet.client.requestSignPayload({
           signingType: SigningType.RAW,
           payload: stringToBytes(message),
-          sourceAddress: address,
+          sourceAddress: session.address,
         });
         submitActivity(activityId);
-        setStatus("idle");
+        finishOperation(session, "idle");
         return { signature: response.signature, publicKey };
       } catch (cause) {
         const message =
           cause instanceof Error ? cause.message : "Message signing failed.";
         setError(message);
-        setStatus("error");
+        finishOperation(session, "error");
         failActivity(activityId, message);
         throw cause;
       }
     },
     [
       address,
-      assertCurrentAccount,
+      assertOperationSession,
+      beginOperation,
+      captureOperationSession,
       failActivity,
+      finishOperation,
       startActivity,
       submitActivity,
     ],

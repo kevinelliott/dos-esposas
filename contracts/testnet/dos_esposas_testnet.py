@@ -43,27 +43,11 @@ def dos_esposas_testnet():
         token_id=sp.nat,
         description=sp.bytes,
     ).layout(("token_id", "description"))
-    recipe_drops_update_type: type = sp.record(
-        recipe_id=sp.nat,
-        drops=sp.list[drop_type],
-    ).layout(("recipe_id", "drops"))
     legacy_asset_type: type = sp.record(
         contract=sp.address,
         token_id=sp.nat,
         unit_scale=sp.nat,
     ).layout(("contract", ("token_id", "unit_scale")))
-    legacy_asset_update_type: type = sp.record(
-        replacement_token_id=sp.nat,
-        contract=sp.address,
-        token_id=sp.nat,
-        unit_scale=sp.nat,
-        enabled=sp.bool,
-    ).layout(
-        (
-            "replacement_token_id",
-            ("contract", ("token_id", ("unit_scale", "enabled"))),
-        )
-    )
     replate_type: type = sp.record(
         replacement_token_id=sp.nat,
         legacy_amount=sp.nat,
@@ -201,61 +185,6 @@ def dos_esposas_testnet():
             metadata = self.data.token_metadata[params.token_id]
             metadata.token_info["description"] = params.description
             self.data.token_metadata[params.token_id] = metadata
-
-        @sp.entrypoint
-        def update_recipe_drops(self, params):
-            """Replace one recipe's independently rolled reward list."""
-            sp.cast(params, recipe_drops_update_type)
-            assert (
-                self.is_administrator_()
-                or sp.sender in self.data.metadata_managers
-            ), "FA2_NOT_METADATA_MANAGER"
-            assert params.recipe_id in self.data.recipes, "UNKNOWN_RECIPE"
-            assert sp.len(params.drops) <= 8, "TOO_MANY_DROPS"
-
-            seen = sp.cast(set(), sp.set[sp.nat])
-            for drop in params.drops:
-                assert (
-                    drop.token_id in self.data.token_metadata
-                ), "FA2_TOKEN_UNDEFINED"
-                assert not (
-                    drop.token_id in seen
-                ), "DUPLICATE_DROP_TOKEN"
-                assert drop.amount > 0, "ZERO_DROP_AMOUNT"
-                assert (
-                    drop.chance_bps > 0 and drop.chance_bps <= 10_000
-                ), "INVALID_DROP_CHANCE"
-                seen.add(drop.token_id)
-
-            recipe = self.data.recipes[params.recipe_id]
-            recipe.drops = params.drops
-            self.data.recipes[params.recipe_id] = recipe
-            sp.emit(
-                sp.record(
-                    manager=sp.sender,
-                    recipe_id=params.recipe_id,
-                    drop_count=sp.len(params.drops),
-                ),
-                tag="recipe_drops_updated",
-            )
-
-        @sp.entrypoint
-        def set_legacy_asset(self, params):
-            """Configure the legacy FA2 accepted for one replacement token."""
-            sp.cast(params, legacy_asset_update_type)
-            assert self.is_administrator_(), "FA2_NOT_ADMIN"
-            assert (
-                params.replacement_token_id in self.data.token_metadata
-            ), "FA2_TOKEN_UNDEFINED"
-            if params.enabled:
-                assert params.unit_scale > 0, "INVALID_UNIT_SCALE"
-                self.data.legacy_assets[params.replacement_token_id] = sp.record(
-                    contract=params.contract,
-                    token_id=params.token_id,
-                    unit_scale=params.unit_scale,
-                )
-            else:
-                del self.data.legacy_assets[params.replacement_token_id]
 
         @sp.entrypoint
         def replate(self, params):
@@ -825,6 +754,25 @@ def compile_contract():
         ),
     )
     scenario += legacy
+    replate_contract = dos_esposas_testnet.DosEsposasTestnet(
+        PLACEHOLDER_ADMIN,
+        sp.big_map(),
+        initial_ledger,
+        token_metadata,
+        unit_scales,
+        recipes,
+        sp.big_map(
+            {
+                token["shadownetTokenId"]: sp.record(
+                    contract=legacy.address,
+                    token_id=token["shadownetTokenId"],
+                    unit_scale=10 ** int(token["decimals"]),
+                )
+                for token in ORIGINAL_TOKEN_DETAILS
+            }
+        ),
+    )
+    scenario += replate_contract
 
     alice = sp.test_account("Alice")
     bob = sp.test_account("Bob")
@@ -985,73 +933,6 @@ def compile_contract():
         _exception="EMPTY_DESCRIPTION",
     )
 
-    scenario.h2("Managers configure multiple independent recipe drops")
-    guaranteed_drops = [
-        sp.record(token_id=38, amount=2, chance_bps=10_000),
-        sp.record(token_id=5, amount=1, chance_bps=10_000),
-    ]
-    contract.update_recipe_drops(
-        recipe_id=0,
-        drops=guaranteed_drops,
-        _sender=bob,
-    )
-    scenario.verify(sp.len(contract.data.recipes[0].drops) == 2)
-    contract.update_recipe_drops(
-        recipe_id=0,
-        drops=guaranteed_drops,
-        _sender=alice,
-        _valid=False,
-        _exception="FA2_NOT_METADATA_MANAGER",
-    )
-    contract.update_recipe_drops(
-        recipe_id=22,
-        drops=[],
-        _sender=bob,
-        _valid=False,
-        _exception="UNKNOWN_RECIPE",
-    )
-    contract.update_recipe_drops(
-        recipe_id=0,
-        drops=[
-            sp.record(token_id=6, amount=1, chance_bps=500),
-            sp.record(token_id=6, amount=2, chance_bps=250),
-        ],
-        _sender=bob,
-        _valid=False,
-        _exception="DUPLICATE_DROP_TOKEN",
-    )
-    contract.update_recipe_drops(
-        recipe_id=0,
-        drops=[sp.record(token_id=57, amount=1, chance_bps=500)],
-        _sender=bob,
-        _valid=False,
-        _exception="FA2_TOKEN_UNDEFINED",
-    )
-    contract.update_recipe_drops(
-        recipe_id=0,
-        drops=[sp.record(token_id=6, amount=0, chance_bps=500)],
-        _sender=bob,
-        _valid=False,
-        _exception="ZERO_DROP_AMOUNT",
-    )
-    contract.update_recipe_drops(
-        recipe_id=0,
-        drops=[sp.record(token_id=6, amount=1, chance_bps=10_001)],
-        _sender=bob,
-        _valid=False,
-        _exception="INVALID_DROP_CHANCE",
-    )
-    contract.update_recipe_drops(
-        recipe_id=0,
-        drops=[
-            sp.record(token_id=token_id, amount=1, chance_bps=100)
-            for token_id in range(9)
-        ],
-        _sender=bob,
-        _valid=False,
-        _exception="TOO_MANY_DROPS",
-    )
-
     scenario.h2("Administrator revokes all manager update powers")
     contract.set_metadata_manager(
         manager=bob.address,
@@ -1073,68 +954,46 @@ def compile_contract():
         _valid=False,
         _exception="FA2_NOT_METADATA_MANAGER",
     )
-    contract.update_recipe_drops(
-        recipe_id=0,
-        drops=[],
-        _sender=bob,
-        _valid=False,
-        _exception="FA2_NOT_METADATA_MANAGER",
-    )
-
     scenario.h2("Replate legacy assets into replacements")
-    contract.set_legacy_asset(
-        replacement_token_id=0,
-        contract=legacy.address,
-        token_id=0,
-        unit_scale=1_000_000,
-        enabled=True,
-        _sender=PLACEHOLDER_ADMIN,
-    )
-    contract.set_legacy_asset(
-        replacement_token_id=0,
-        contract=legacy.address,
-        token_id=0,
-        unit_scale=1_000_000,
-        enabled=True,
-        _sender=alice,
-        _valid=False,
-        _exception="FA2_NOT_ADMIN",
-    )
     legacy.claim_legacy(_sender=alice)
     legacy.update_operators(
         [
             sp.variant.add_operator(
                 sp.record(
                     owner=alice.address,
-                    operator=contract.address,
+                    operator=replate_contract.address,
                     token_id=0,
                 )
             )
         ],
         _sender=alice,
     )
-    contract.replate(
+    replate_contract.replate(
         replacement_token_id=0,
         legacy_amount=2_000_000,
         _sender=alice,
     )
     scenario.verify(legacy.data.ledger[(alice.address, 0)] == 8_000_000)
-    scenario.verify(legacy.data.ledger[(contract.address, 0)] == 2_000_000)
-    scenario.verify(contract.data.ledger[(alice.address, 0)] == 2_000_000)
-    scenario.verify(contract.data.replated[0] == 2_000_000)
+    scenario.verify(
+        legacy.data.ledger[(replate_contract.address, 0)] == 2_000_000
+    )
+    scenario.verify(
+        replate_contract.data.ledger[(alice.address, 0)] == 2_000_000
+    )
+    scenario.verify(replate_contract.data.replated[0] == 2_000_000)
     legacy.update_operators(
         [
             sp.variant.remove_operator(
                 sp.record(
                     owner=alice.address,
-                    operator=contract.address,
+                    operator=replate_contract.address,
                     token_id=0,
                 )
             )
         ],
         _sender=alice,
     )
-    contract.replate(
+    replate_contract.replate(
         replacement_token_id=39,
         legacy_amount=1_000_000,
         _sender=alice,
@@ -1184,8 +1043,6 @@ def compile_contract():
     contract.craft(recipe_id=0, quantity=1, _sender=alice)
     scenario.verify(contract.data.ledger[(alice.address, 2)] == 22_000_000)
     scenario.verify(contract.data.ledger[(alice.address, 16)] == 26_000_000)
-    scenario.verify(contract.data.ledger[(alice.address, 38)] == 27_000_000)
-    scenario.verify(contract.data.ledger[(alice.address, 5)] == 26_000_000)
     scenario.verify(
         contract.data.ledger[(PLACEHOLDER_ADMIN, 2)]
         == int(TOKEN_DETAILS[2]["totalSupplyRaw"]) + 3_000_000

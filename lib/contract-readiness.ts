@@ -3,6 +3,7 @@ export type ContractReadiness = {
   contract: string;
   reason: string;
   codeHash?: string;
+  policyHash?: string;
 };
 
 type ContractRecord = {
@@ -11,9 +12,8 @@ type ContractRecord = {
 };
 
 const requiredStorageFields = [
-  "drop_nonce",
   "legacy_assets",
-  "metadata_managers",
+  "next_token_id",
   "recipes",
   "unit_scales",
 ] as const;
@@ -25,18 +25,23 @@ const requiredEntrypoints = [
   "mint_test_collection",
   "replate",
   "set_metadata_manager",
-  "update_recipe_drops",
 ] as const;
 
 export function evaluateContractReadiness({
   contract,
   expectedCodeHash,
+  expectedPolicyHash,
+  pinnedPolicyHash,
+  actualPolicyHash,
   contractRecord,
   storage,
   entrypoints,
 }: {
   contract: string;
   expectedCodeHash: string;
+  expectedPolicyHash: string;
+  pinnedPolicyHash: string;
+  actualPolicyHash: string;
   contractRecord: ContractRecord;
   storage: unknown;
   entrypoints: unknown;
@@ -46,6 +51,18 @@ export function evaluateContractReadiness({
       ready: false,
       contract,
       reason: "No reviewed Shadownet contract code hash is configured.",
+    };
+  }
+
+  if (
+    !/^[a-f0-9]{64}$/.test(expectedPolicyHash) ||
+    expectedPolicyHash !== pinnedPolicyHash
+  ) {
+    return {
+      ready: false,
+      contract,
+      reason:
+        "No build-pinned Shadownet economic policy hash is configured.",
     };
   }
 
@@ -95,10 +112,23 @@ export function evaluateContractReadiness({
     };
   }
 
+  if (actualPolicyHash !== expectedPolicyHash) {
+    return {
+      ready: false,
+      contract,
+      codeHash,
+      policyHash: actualPolicyHash,
+      reason:
+        "The deployed contract economics do not match the reviewed policy.",
+    };
+  }
+
   return {
     ready: true,
     contract,
     codeHash,
-    reason: "The deployed contract matches the reviewed code and schema.",
+    policyHash: actualPolicyHash,
+    reason:
+      "The deployed contract matches the reviewed code and economic policy.",
   };
 }

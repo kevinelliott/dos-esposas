@@ -11,6 +11,7 @@ const EXPECTED_CHAIN_ID = "NetXsqzbfFenSTS";
 const PLACEHOLDER_ADMIN = "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb";
 const PLACEHOLDER_LEGACY = "KT1SeR63WtS4m3BPjmsQwNuCNPSi6Pc5aHhm";
 const FAUCET_URL = "https://faucet.shadownet.teztnets.com";
+const TZKT_API_URL = "https://api.shadownet.tzkt.io";
 const ORIGINATION_GAS_LIMIT = 350_000;
 const ORIGINATION_STORAGE_LIMIT = 60_000;
 const ORIGINATION_FEE = 100_000;
@@ -183,6 +184,12 @@ const legacyCode = JSON.parse(
 const legacyInitialStorage = JSON.parse(
   readFileSync(resolve("contracts/testnet/build/legacy-storage.json"), "utf8"),
 );
+const policyManifest = JSON.parse(
+  readFileSync(
+    resolve("contracts/testnet/build/policy-manifest.json"),
+    "utf8",
+  ),
+);
 
 let managerKey = await tezos.rpc.getManagerKey(address);
 for (let attempt = 1; !managerKey && attempt <= 3; attempt += 1) {
@@ -239,11 +246,37 @@ const contractAddress = await originateContract(
   replacementStorage,
 );
 
+let indexedContract = null;
+const indexed = await waitForState(
+  async () => {
+    const response = await fetch(
+      `${TZKT_API_URL}/v1/contracts/${contractAddress}`,
+      { headers: { accept: "application/json" } },
+    );
+    if (!response.ok) return false;
+    const record = await response.json();
+    if (record.address !== contractAddress || record.codeHash === undefined) {
+      return false;
+    }
+    indexedContract = record;
+    return true;
+  },
+  300_000,
+);
+if (!indexed || !indexedContract) {
+  throw new Error(
+    "TzKT did not index the replacement contract within five minutes, so no app configuration was written.",
+  );
+}
+const contractCodeHash = String(indexedContract.codeHash);
+
 const env = [
   'NEXT_PUBLIC_TEZOS_DAPP_NAME="Dos Esposas Test Lab"',
   'NEXT_PUBLIC_TEZOS_NETWORK="shadownet"',
   `NEXT_PUBLIC_TEZOS_RPC_URL="${RPC_URL}"`,
   `NEXT_PUBLIC_TESTNET_ASSET_CONTRACT="${contractAddress}"`,
+  `NEXT_PUBLIC_TESTNET_CONTRACT_CODE_HASH="${contractCodeHash}"`,
+  `NEXT_PUBLIC_TESTNET_POLICY_HASH="${policyManifest.sha256}"`,
   `NEXT_PUBLIC_TESTNET_LEGACY_CONTRACT="${legacyContractAddress}"`,
   `NEXT_PUBLIC_TESTNET_SYSTEM_WALLET="${address}"`,
   `NEXT_PUBLIC_MARKETPLACE_CONTRACT="${contractAddress}"`,

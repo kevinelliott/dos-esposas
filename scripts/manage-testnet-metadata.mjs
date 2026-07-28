@@ -1,9 +1,6 @@
 import { InMemorySigner } from "@taquito/signer";
 import { TezosToolkit } from "@taquito/taquito";
-import {
-  replacementAssetDescriptions,
-  syncTestnetDescriptions,
-} from "./lib/sync-testnet-descriptions.mjs";
+import { syncTestnetDescriptions } from "./lib/sync-testnet-descriptions.mjs";
 
 const RPC_URL =
   process.env.SHADOWNET_RPC_URL?.trim() ??
@@ -15,10 +12,6 @@ const contractAddress =
   process.env.NEXT_PUBLIC_TESTNET_ASSET_CONTRACT?.trim();
 const secretKey = process.env.SHADOWNET_PRIVATE_KEY?.trim();
 const [command, action, ...values] = process.argv.slice(2);
-const assetsBySlug = new Map(
-  replacementAssetDescriptions.map((asset) => [asset.slug, asset]),
-);
-
 function usage() {
   return [
     "Usage:",
@@ -27,8 +20,6 @@ function usage() {
     "  npm run testnet:metadata -- image <token-id> <ipfs-or-https-uri>",
     '  npm run testnet:metadata -- description <token-id> "New description"',
     "  npm run testnet:metadata -- descriptions sync",
-    "  npm run testnet:metadata -- drops set <recipe-id> <token-id-or-slug>:<amount>:<chance-bps> [...]",
-    "  npm run testnet:metadata -- drops clear <recipe-id>",
   ].join("\n");
 }
 
@@ -43,36 +34,6 @@ function uriToBytes(uri) {
 function validNatural(value) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
-}
-
-function resolveTokenId(reference) {
-  const numeric = validNatural(reference);
-  if (numeric !== null) return numeric;
-  const asset = assetsBySlug.get(reference);
-  return asset?.shadownetTokenId ?? null;
-}
-
-function parseDropSpec(spec) {
-  const [tokenReference, amountValue, chanceValue, ...extra] = spec.split(":");
-  const tokenId = resolveTokenId(tokenReference);
-  const amount = validNatural(amountValue);
-  const chanceBps = validNatural(chanceValue);
-  if (
-    extra.length > 0 ||
-    tokenId === null ||
-    amount === null ||
-    amount < 1 ||
-    chanceBps === null ||
-    chanceBps < 1 ||
-    chanceBps > 10_000
-  ) {
-    throw new Error(`Invalid drop specification "${spec}".\n${usage()}`);
-  }
-  return {
-    token_id: tokenId,
-    amount,
-    chance_bps: chanceBps,
-  };
 }
 
 if (!secretKey) {
@@ -181,32 +142,6 @@ if (command === "descriptions") {
     })
     .send();
   console.log(`Updating token ${tokenId} description from ${signerAddress}.`);
-} else if (command === "drops") {
-  const recipeId = validNatural(values[0]);
-  if (
-    recipeId === null ||
-    !["set", "clear"].includes(action) ||
-    (action === "clear" && values.length !== 1) ||
-    (action === "set" && (values.length < 2 || values.length > 9))
-  ) {
-    throw new Error(usage());
-  }
-
-  const drops =
-    action === "set" ? values.slice(1).map(parseDropSpec) : [];
-  if (new Set(drops.map((drop) => drop.token_id)).size !== drops.length) {
-    throw new Error(`Drop token types must be unique.\n${usage()}`);
-  }
-
-  operation = await contract.methodsObject
-    .update_recipe_drops({
-      recipe_id: recipeId,
-      drops,
-    })
-    .send();
-  console.log(
-    `${action === "set" ? `Setting ${drops.length}` : "Clearing"} recipe ${recipeId} drops from ${signerAddress}.`,
-  );
 } else {
   throw new Error(usage());
 }

@@ -3,9 +3,8 @@ import test from "node:test";
 import { evaluateContractReadiness } from "../lib/contract-readiness.ts";
 
 const requiredStorage = {
-  drop_nonce: 0,
   legacy_assets: 1,
-  metadata_managers: [],
+  next_token_id: 57,
   recipes: 2,
   unit_scales: 3,
 };
@@ -16,13 +15,16 @@ const requiredEntrypoints = [
   "mint_test_collection",
   "replate",
   "set_metadata_manager",
-  "update_recipe_drops",
 ].map((name) => ({ name }));
+const policyHash = "a".repeat(64);
 
 function readiness(overrides = {}) {
   return evaluateContractReadiness({
     contract: "KT1-reviewed",
     expectedCodeHash: "1234",
+    expectedPolicyHash: policyHash,
+    pinnedPolicyHash: policyHash,
+    actualPolicyHash: policyHash,
     contractRecord: { address: "KT1-reviewed", codeHash: 1234 },
     storage: requiredStorage,
     entrypoints: requiredEntrypoints,
@@ -30,7 +32,7 @@ function readiness(overrides = {}) {
   });
 }
 
-test("accepts only the reviewed code hash and schema", () => {
+test("accepts only the reviewed code, schema, and policy", () => {
   assert.equal(readiness().ready, true);
 });
 
@@ -44,6 +46,21 @@ test("fails closed without a code hash or with a different deployment", () => {
       contractRecord: { address: "KT1-reviewed", codeHash: 9999 },
     }).reason,
     /does not match/,
+  );
+});
+
+test("fails closed when policy configuration or deployed economics drift", () => {
+  assert.match(
+    readiness({ expectedPolicyHash: "" }).reason,
+    /policy hash is configured/,
+  );
+  assert.match(
+    readiness({ pinnedPolicyHash: "b".repeat(64) }).reason,
+    /policy hash is configured/,
+  );
+  assert.match(
+    readiness({ actualPolicyHash: "b".repeat(64) }).reason,
+    /economics do not match/,
   );
 });
 

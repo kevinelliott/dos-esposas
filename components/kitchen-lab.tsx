@@ -493,10 +493,12 @@ export function KitchenLab() {
         quantity,
       });
       setPhase("plating");
-      setNotice(`${recipe.action} accepted. Plating ${output.name}...`);
+      setNotice(
+        `${recipe.action} submitted. Waiting for applied chain confirmation...`,
+      );
       await actionDelay(operation.settleMs);
       setNotice(
-        `${recipe.action} submitted: ${hash}. The bonus result is recorded on-chain.`,
+        `${recipe.action} submitted: ${hash}. Bonus results are not final until the operation applies.`,
       );
       setReceipt({
         state: "submitted",
