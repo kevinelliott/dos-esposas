@@ -366,9 +366,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
         const wallet = await getWallet();
         const tezos = await toolkit(
-          guardWalletProvider(wallet, () =>
-            assertOperationSession(operationSession).then(() => undefined),
-          ),
+          guardWalletProvider(wallet, (account) => {
+            assertWalletOperation({
+              session: operationSession,
+              currentRevision: sessionRevision.current,
+              account,
+              expectedNetwork: networkConfig.id,
+            });
+          }),
         );
         const token = await tezos.wallet.at(request.contract);
         await assertOperationSession(operationSession);
@@ -435,9 +440,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         session = operationSession;
         const wallet = await getWallet();
         const tezos = await toolkit(
-          guardWalletProvider(wallet, () =>
-            assertOperationSession(operationSession).then(() => undefined),
-          ),
+          guardWalletProvider(wallet, (account) => {
+            assertWalletOperation({
+              session: operationSession,
+              currentRevision: sessionRevision.current,
+              account,
+              expectedNetwork: networkConfig.id,
+            });
+          }),
         );
         const target = await tezos.wallet.at(contract);
         const method = target.methodsObject[entrypoint];
@@ -507,9 +517,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         session = operationSession;
         const wallet = await getWallet();
         const tezos = await toolkit(
-          guardWalletProvider(wallet, () =>
-            assertOperationSession(operationSession).then(() => undefined),
-          ),
+          guardWalletProvider(wallet, (account) => {
+            assertWalletOperation({
+              session: operationSession,
+              currentRevision: sessionRevision.current,
+              account,
+              expectedNetwork: networkConfig.id,
+            });
+          }),
         );
         const batch = tezos.wallet.batch();
         for (const request of requests) {

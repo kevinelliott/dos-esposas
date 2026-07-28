@@ -1,9 +1,23 @@
 import { assertDisplayedWallet } from "./wallet-account.ts";
 import type { WalletProvider } from "@taquito/taquito";
 
+const OPERATION_REQUEST_SCOPE = "operation_request";
+
 type ActiveAccount = {
   address?: unknown;
   network?: { type?: unknown };
+  scopes?: unknown;
+};
+
+type BeaconOperationClient = {
+  getActiveAccount: () => Promise<ActiveAccount | undefined>;
+  requestOperation: (request: {
+    operationDetails: unknown[];
+  }) => Promise<{ transactionHash: string }>;
+};
+
+type BeaconWalletProvider = WalletProvider & {
+  client?: BeaconOperationClient;
 };
 
 export type WalletOperationSession = {
@@ -47,14 +61,38 @@ export function assertWalletOperation({
 
 export function guardWalletProvider(
   wallet: WalletProvider,
-  assertSession: () => void | Promise<void>,
+  assertSession: (account?: ActiveAccount) => void,
 ): WalletProvider {
   return new Proxy(wallet, {
     get(target, property) {
       if (property === "sendOperations") {
         return async (params: unknown[]) => {
-          await assertSession();
-          return target.sendOperations(params);
+          const client = (target as BeaconWalletProvider).client;
+          if (!client) {
+            throw new Error(
+              "The Beacon operation client is unavailable. Reconnect the wallet and try again.",
+            );
+          }
+
+          const account = await client.getActiveAccount();
+          if (!account) {
+            throw new Error(
+              "The Beacon wallet is not initialized. Connect it and try again.",
+            );
+          }
+          assertSession(account);
+
+          const scopes = Array.isArray(account.scopes) ? account.scopes : [];
+          if (!scopes.includes(OPERATION_REQUEST_SCOPE)) {
+            throw new Error(
+              "The wallet has not granted permission to submit operations.",
+            );
+          }
+
+          const { transactionHash } = await client.requestOperation({
+            operationDetails: params,
+          });
+          return transactionHash;
         };
       }
 
