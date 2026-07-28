@@ -1,55 +1,38 @@
 {
   "name": "dos-esposas",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "dev": "next dev",
+    "dev:testnet": "node scripts/run-testnet.mjs dev",
+    "build": "next build",
+    "build:testnet": "node scripts/run-testnet.mjs build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit --incremental false",
+    "verify:ui": "node scripts/visual-check.mjs",
+    "mainnet:sync": "node scripts/sync-mainnet-assets.mjs",
+    "replacement:sync": "node scripts/sync-replacement-assets.mjs",
+    "testnet:compile": "node scripts/compile-testnet.mjs",
+    "testnet:deploy": "node scripts/deploy-testnet.mjs",
+    "testnet:metadata": "node --env-file-if-exists=.env.shadownet.local scripts/manage-testnet-metadata.mjs"
   },
   "dependencies": {
-    "@airgap/beacon-sdk": "^2.3.9",
-    "@taquito/beacon-wallet": "^11.1.0",
-    "@taquito/ledger-signer": "^11.1.0",
-    "@taquito/signer": "^11.1.0",
-    "@taquito/taquito": "^11.1.0",
-    "@taquito/tzip12": "^11.1.0",
-    "@taquito/tzip16": "^11.1.0",
-    "axios": "^0.25.0",
-    "axios-jwt": "^1.7.5",
-    "core-js": "^3.20.3",
-    "dotenv": "^14.3.2",
-    "vue": "^3.0.0",
-    "vue-gtag-next": "^1.14.0",
-    "vue-router": "4",
-    "vue3-jazzicon": "^0.1.2"
+    "@taquito/beacon-wallet": "25.0.0",
+    "@taquito/signer": "^25.0.0",
+    "@taquito/taquito": "^25.0.0",
+    "lucide-react": "1.26.0",
+    "next": "16.2.11",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "~4.5.0",
-    "@vue/cli-plugin-eslint": "~4.5.0",
-    "@vue/cli-service": "~4.5.0",
-    "@vue/compiler-sfc": "^3.0.0",
-    "babel-eslint": "^10.1.0",
-    "eslint": "^6.7.2",
-    "eslint-plugin-vue": "^7.0.0"
-  },
-  "eslintConfig": {
-    "root": true,
-    "env": {
-      "node": true
-    },
-    "extends": [
-      "plugin:vue/vue3-essential",
-      "eslint:recommended"
-    ],
-    "parserOptions": {
-      "parser": "babel-eslint"
-    },
-    "rules": {}
-  },
-  "browserslist": [
-    "> 1%",
-    "last 2 versions",
-    "not dead"
-  ]
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.2.11",
+    "typescript": "^5.9.0"
+  }
 }

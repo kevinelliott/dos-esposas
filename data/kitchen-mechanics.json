@@ -1,0 +1,116 @@
+[
+  {
+    "action": "Blend",
+    "burnsInputs": false,
+    "inputDisposition": "reserve",
+    "drops": [
+      {
+        "slug": "lime",
+        "amount": 1,
+        "chanceBps": 1200
+      },
+      {
+        "slug": "jalapenos",
+        "amount": 1,
+        "chanceBps": 400
+      }
+    ]
+  },
+  {
+    "action": "Cook",
+    "burnsInputs": true,
+    "inputDisposition": "burn",
+    "drops": [
+      {
+        "slug": "sour-cream",
+        "amount": 1,
+        "chanceBps": 800
+      },
+      {
+        "slug": "mexican-cheese",
+        "amount": 1,
+        "chanceBps": 300
+      }
+    ]
+  },
+  {
+    "action": "Combine",
+    "burnsInputs": false,
+    "inputDisposition": "reserve",
+    "drops": []
+  },
+  {
+    "action": "Merge",
+    "burnsInputs": true,
+    "inputDisposition": "burn",
+    "drops": [
+      {
+        "slug": "restaurant-credits",
+        "amount": 25,
+        "chanceBps": 500
+      },
+      {
+        "slug": "anejo-tequila-kitchen",
+        "amount": 1,
+        "chanceBps": 150
+      }
+    ]
+  },
+  {
+    "action": "Grill",
+    "burnsInputs": true,
+    "inputDisposition": "burn",
+    "drops": [
+      {
+        "slug": "ghost-pepper-sauce",
+        "amount": 1,
+        "chanceBps": 700
+      },
+      {
+        "slug": "lime",
+        "amount": 1,
+        "chanceBps": 400
+      }
+    ]
+  },
+  {
+    "action": "Bake",
+    "burnsInputs": true,
+    "inputDisposition": "burn",
+    "drops": [
+      {
+        "slug": "milk",
+        "amount": 1,
+        "chanceBps": 1000
+      },
+      {
+        "slug": "churros",
+        "amount": 1,
+        "chanceBps": 300
+      }
+    ]
+  },
+  {
+    "action": "Shake",
+    "burnsInputs": false,
+    "inputDisposition": "reserve",
+    "drops": [
+      {
+        "slug": "lime",
+        "amount": 1,
+        "chanceBps": 900
+      },
+      {
+        "slug": "silver-tequila",
+        "amount": 1,
+        "chanceBps": 250
+      }
+    ]
+  },
+  {
+    "action": "Simmer",
+    "burnsInputs": true,
+    "inputDisposition": "burn",
+    "drops": []
+  }
+]

@@ -1,6 +1,13 @@
 .DS_Store
 node_modules
 /dist
+/.next
+/.next-shadownet
+/out
+/test-results
+/playwright-report
+*.tsbuildinfo
+/dos_esposas_testnet
 
 
 # local env files
