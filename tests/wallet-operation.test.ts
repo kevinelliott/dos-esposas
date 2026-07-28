@@ -338,6 +338,75 @@ test("delegates a stable real Beacon operation exactly once after final account 
 });
 
 for (const dispatchKind of ["transport", "broadcast"] as const) {
+  test(`blocks a repeated-account permission downgrade before Beacon ${dispatchKind} dispatch`, async () => {
+    let accountReads = 0;
+    let sends = 0;
+    let posts = 0;
+    const scopedAccount = {
+      ...accountA,
+      scopes: [operationRequestScope],
+    };
+    const unscopedAccount = {
+      ...accountA,
+      scopes: [],
+    };
+    const client = {
+      getActiveAccount: async () => {
+        accountReads += 1;
+        return accountReads === 1 ? scopedAccount : unscopedAccount;
+      },
+      requestOperation: DAppClient.prototype.requestOperation,
+      analytics: { track: () => undefined },
+      sendMetrics: () => undefined,
+      buildPayload: async () => ({}),
+      checkMakeRequest: async () => dispatchKind === "transport",
+      makeRequest: async () => {
+        sends += 1;
+        return {
+          message: { transactionHash: "operation-hash" },
+          connectionInfo: {},
+        };
+      },
+      makeRequestBC: async () => {
+        posts += 1;
+        return {
+          message: { transactionHash: "operation-hash" },
+          connectionInfo: {},
+        };
+      },
+    };
+    const wallet = {
+      client,
+      sendOperations: async () => {
+        throw new Error("The unguarded Beacon path must not run.");
+      },
+    } as unknown as WalletProvider;
+    const session = captureWalletOperation({
+      revision: 1,
+      requestedAddress: accountA.address,
+      account: scopedAccount,
+      expectedNetwork: "shadownet",
+    });
+    const guardedWallet = guardWalletProvider(wallet, (activeAccount) => {
+      assertWalletOperation({
+        session,
+        currentRevision: 1,
+        account: activeAccount,
+        expectedNetwork: "shadownet",
+      });
+    });
+
+    await assert.rejects(
+      guardedWallet.sendOperations([{ kind: "transaction" }]),
+      /not granted permission/,
+    );
+    assert.equal(accountReads, 2);
+    assert.equal(sends, 0);
+    assert.equal(posts, 0);
+  });
+}
+
+for (const dispatchKind of ["transport", "broadcast"] as const) {
   test(`blocks drift at Beacon's final ${dispatchKind} dispatch`, async () => {
     let revision = 1;
     let account = {

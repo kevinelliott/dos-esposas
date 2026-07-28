@@ -105,6 +105,25 @@ function dynamicOverride(getValue: () => unknown): GuardedOverride {
   return { [guardedOverride]: getValue };
 }
 
+function assertAuthorizedOperationAccount(
+  account: ActiveAccount | undefined,
+  assertSession: (account?: ActiveAccount) => void,
+): asserts account is ActiveAccount {
+  if (!account) {
+    throw new Error(
+      "The Beacon wallet is not initialized. Connect it and try again.",
+    );
+  }
+  assertSession(account);
+
+  const scopes = Array.isArray(account.scopes) ? account.scopes : [];
+  if (!scopes.includes(OPERATION_REQUEST_SCOPE)) {
+    throw new Error(
+      "The wallet has not granted permission to submit operations.",
+    );
+  }
+}
+
 function guardBeaconClient(
   client: BeaconOperationClient,
   initialAccount: ActiveAccount,
@@ -124,13 +143,13 @@ function guardBeaconClient(
         "The Beacon operation source does not match the reviewed wallet account.",
       );
     }
-    assertSession(operationAccount);
+    assertAuthorizedOperationAccount(operationAccount, assertSession);
   };
 
   const guardTransport = (transport: BeaconTransport) =>
     bindGuardedObject(transport, {
       send: (...args: unknown[]) => {
-        assertSession(operationAccount);
+        assertAuthorizedOperationAccount(operationAccount, assertSession);
         return transport.send(...args);
       },
     });
@@ -138,7 +157,7 @@ function guardBeaconClient(
   const guardMultiTabChannel = (channel: BeaconMultiTabChannel) =>
     bindGuardedObject(channel, {
       postMessage: (...args: unknown[]) => {
-        assertSession(operationAccount);
+        assertAuthorizedOperationAccount(operationAccount, assertSession);
         return channel.postMessage(...args);
       },
     });
@@ -146,12 +165,7 @@ function guardBeaconClient(
   const proxy = bindGuardedObject(client, {
     getActiveAccount: async () => {
       const account = await client.getActiveAccount();
-      assertSession(account);
-      if (!account) {
-        throw new Error(
-          "The Beacon wallet is not initialized. Connect it and try again.",
-        );
-      }
+      assertAuthorizedOperationAccount(account, assertSession);
       operationAccount = account;
       return account;
     },
@@ -203,19 +217,7 @@ export function guardWalletProvider(
           }
 
           const account = await client.getActiveAccount();
-          if (!account) {
-            throw new Error(
-              "The Beacon wallet is not initialized. Connect it and try again.",
-            );
-          }
-          assertSession(account);
-
-          const scopes = Array.isArray(account.scopes) ? account.scopes : [];
-          if (!scopes.includes(OPERATION_REQUEST_SCOPE)) {
-            throw new Error(
-              "The wallet has not granted permission to submit operations.",
-            );
-          }
+          assertAuthorizedOperationAccount(account, assertSession);
 
           const guardedClient = guardBeaconClient(
             client,
