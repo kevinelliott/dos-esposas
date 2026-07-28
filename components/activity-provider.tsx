@@ -153,9 +153,11 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
           };
         }),
       );
-      if (kind === "claim") markMilestone("starter");
-      if (kind === "purchase" || kind === "craft" || kind === "offer") {
-        markMilestone(kind);
+      if (!hash) {
+        if (kind === "claim") markMilestone("starter");
+        if (kind === "purchase" || kind === "craft" || kind === "offer") {
+          markMilestone(kind);
+        }
       }
     },
     [markMilestone],
@@ -192,8 +194,28 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
               { cache: "no-store" },
             );
             if (!response.ok) return;
-            const result = (await response.json()) as { confirmed: boolean };
-            if (!result.confirmed || cancelled) return;
+            const result = (await response.json()) as {
+              state: "pending" | "applied" | "failed";
+              error?: string;
+            };
+            if (cancelled || result.state === "pending") return;
+            if (result.state === "failed") {
+              window.dispatchEvent(
+                new CustomEvent("dos-esposas:activity-failed", {
+                  detail: {
+                    id: activity.id,
+                    kind: activity.kind,
+                    hash: activity.hash,
+                    error: result.error,
+                  },
+                }),
+              );
+              failActivity(
+                activity.id,
+                result.error ?? "The Tezos operation failed on-chain.",
+              );
+              return;
+            }
             setActivities((current) =>
               current.map((candidate) =>
                 candidate.id === activity.id
@@ -207,9 +229,21 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
             );
             window.dispatchEvent(
               new CustomEvent("dos-esposas:activity-confirmed", {
-                detail: { id: activity.id, kind: activity.kind },
+                detail: {
+                  id: activity.id,
+                  kind: activity.kind,
+                  hash: activity.hash,
+                },
               }),
             );
+            if (activity.kind === "claim") markMilestone("starter");
+            if (
+              activity.kind === "purchase" ||
+              activity.kind === "craft" ||
+              activity.kind === "offer"
+            ) {
+              markMilestone(activity.kind);
+            }
           } catch {
             // Indexer polling is best-effort; submitted operations stay visible.
           }
@@ -223,7 +257,7 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [activities]);
+  }, [activities, failActivity, markMilestone]);
 
   const clearSettled = useCallback(() => {
     setActivities((current) =>

@@ -37,7 +37,7 @@ type TradeOffer = {
   network: string;
   signature: string;
   publicKey: string;
-  status: "signed" | "accepted" | "delivered";
+  status: "signed" | "accepted" | "submitted" | "delivered";
   acceptedAt?: string;
   acceptanceSignature?: string;
   acceptancePublicKey?: string;
@@ -161,7 +161,7 @@ export function TradeDesk() {
   const [deliveryPhase, setDeliveryPhase] =
     useState<DeliveryPhase>("idle");
   const [receipt, setReceipt] = useState<{
-    state: "pending" | "success" | "error";
+    state: "pending" | "submitted" | "success" | "error";
     title: string;
     detail: string;
     hash?: string;
@@ -201,6 +201,52 @@ export function TradeDesk() {
   useEffect(() => {
     if (hydrated) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(offers));
   }, [offers, hydrated]);
+
+  useEffect(() => {
+    const settleDelivery = (event: Event) => {
+      const { hash } = (event as CustomEvent<{ hash?: string }>).detail;
+      if (!hash) return;
+      setOffers((current) =>
+        current.map((offer) =>
+          offer.status === "submitted" && offer.operation === hash
+            ? { ...offer, status: "delivered" }
+            : offer,
+        ),
+      );
+    };
+    const failDelivery = (event: Event) => {
+      const { hash, error } = (
+        event as CustomEvent<{ hash?: string; error?: string }>
+      ).detail;
+      if (!hash) return;
+      setOffers((current) =>
+        current.map((offer) =>
+          offer.status === "submitted" && offer.operation === hash
+            ? { ...offer, status: "accepted", operation: undefined }
+            : offer,
+        ),
+      );
+      setNotice(
+        error ??
+          "The submitted delivery failed on-chain. The offer remains accepted.",
+      );
+    };
+    window.addEventListener(
+      "dos-esposas:activity-confirmed",
+      settleDelivery,
+    );
+    window.addEventListener("dos-esposas:activity-failed", failDelivery);
+    return () => {
+      window.removeEventListener(
+        "dos-esposas:activity-confirmed",
+        settleDelivery,
+      );
+      window.removeEventListener(
+        "dos-esposas:activity-failed",
+        failDelivery,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -337,7 +383,11 @@ export function TradeDesk() {
         const expired = expiredOfferIds.includes(offer.id);
         if (offerView === "outgoing") return offer.creator === address;
         if (offerView === "received") return offer.recipient === address;
-        if (offerView === "accepted") return offer.status === "accepted";
+        if (offerView === "accepted") {
+          return (
+            offer.status === "accepted" || offer.status === "submitted"
+          );
+        }
         if (offerView === "expired") return expired;
         if (offerView === "delivered") return offer.status === "delivered";
         return true;
@@ -503,14 +553,14 @@ export function TradeDesk() {
       setOffers((current) =>
         current.map((candidate) =>
           candidate.id === offer.id
-            ? { ...candidate, status: "delivered", operation }
+            ? { ...candidate, status: "submitted", operation }
             : candidate,
         ),
       );
       setReceipt({
-        state: "success",
-        title: `${offer.amount} ${item.symbol} delivered`,
-        detail: `The direct transfer to ${shortAddress(offer.recipient)} was submitted.`,
+        state: "submitted",
+        title: `${offer.amount} ${item.symbol} delivery submitted`,
+        detail: `The direct transfer to ${shortAddress(offer.recipient)} is awaiting applied confirmation.`,
         hash: operation,
       });
       window.setTimeout(refresh, 6000);
@@ -781,7 +831,8 @@ export function TradeDesk() {
                       </span>
                     </div>
                     <p>Delivery wallet {shortAddress(offer.recipient)}</p>
-                    {offer.status === "accepted" && (
+                    {(offer.status === "accepted" ||
+                      offer.status === "submitted") && (
                       <div className="offer-accepted">
                         <BadgeCheck size={16} />
                         Counterparty acceptance verified
@@ -792,7 +843,19 @@ export function TradeDesk() {
                         </span>
                       </div>
                     )}
-                    {offer.status === "delivered" ? (
+                    {offer.status === "submitted" ? (
+                      <div className="offer-delivered">
+                        <Clock3 size={17} />
+                        Delivery submitted
+                        <a
+                          href={explorerUrl(offer.operation ?? "")}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Awaiting confirmation
+                        </a>
+                      </div>
+                    ) : offer.status === "delivered" ? (
                       <div className="offer-delivered">
                         <CheckCircle2 size={17} />
                         Delivered

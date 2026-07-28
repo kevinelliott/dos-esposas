@@ -3,16 +3,7 @@ import { catalogByContract } from "@/lib/catalog";
 import type { InventoryResponse } from "@/lib/inventory-types";
 import { networkConfig } from "@/lib/network";
 import { replateBalanceKeys } from "@/lib/replate";
-
-type TzktBalance = {
-  balance: string;
-  lastTime?: string;
-  token: {
-    tokenId: string;
-    totalSupply: string;
-    contract: { address: string };
-  };
-};
+import { fetchAllTokenBalances } from "@/lib/tzkt-balances";
 
 export const dynamic = "force-dynamic";
 
@@ -31,24 +22,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const query = new URLSearchParams({
-      account,
-      "balance.gt": "0",
-      limit: "1000",
-    });
-    const response = await fetch(
-      `${networkConfig.tzktApiUrl}/v1/tokens/balances?${query}`,
-      {
-        headers: { accept: "application/json" },
-        next: { revalidate: 20 },
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`TzKT returned ${response.status}`);
+    const relevantContracts = new Set<string>();
+    for (const key of catalogByContract.keys()) {
+      relevantContracts.add(key.split(":")[0]);
     }
-
-    const rows = (await response.json()) as TzktBalance[];
+    for (const key of replateBalanceKeys) {
+      relevantContracts.add(key.split(":")[0]);
+    }
+    const rows = await fetchAllTokenBalances({
+      account,
+      contracts: [...relevantContracts],
+      tzktApiUrl: networkConfig.tzktApiUrl,
+    });
     const balances = rows
       .map((row) => ({
         contract: row.token.contract.address,

@@ -138,7 +138,7 @@ export function TransactionReview({
 }
 
 type OperationReceiptProps = {
-  state: "pending" | "success" | "error";
+  state: "pending" | "submitted" | "success" | "error";
   title: string;
   detail: string;
   hash?: string;

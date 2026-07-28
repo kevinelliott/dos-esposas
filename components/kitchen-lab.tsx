@@ -33,7 +33,7 @@ import {
   type KitchenAction,
 } from "@/lib/catalog";
 import { formatTokenAmount, shortAddress } from "@/lib/units";
-import { networkConfig } from "@/lib/network";
+import { hasTestnetDeployment, networkConfig } from "@/lib/network";
 import { actionDelay } from "@/lib/action-timing";
 import { friendlyWalletError } from "@/lib/wallet-errors";
 import {
@@ -337,6 +337,10 @@ export function KitchenLab() {
   const kitchen =
     process.env.NEXT_PUBLIC_KITCHEN_CONTRACT ||
     (networkConfig.isTestnet ? networkConfig.assetContract : "");
+  const kitchenReady =
+    Boolean(kitchen) &&
+    (!networkConfig.isTestnet ||
+      (kitchen === networkConfig.assetContract && hasTestnetDeployment));
   const { address, connect, callContract, status } = useWallet();
   const { balances, loading, refresh } = useInventory(address);
   const { dropsForRecipe, source: dropPolicySource } =
@@ -352,7 +356,7 @@ export function KitchenLab() {
   const [notice, setNotice] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [receipt, setReceipt] = useState<{
-    state: "pending" | "success" | "error";
+    state: "pending" | "submitted" | "success" | "error";
     title: string;
     detail: string;
     hash?: string;
@@ -470,7 +474,7 @@ export function KitchenLab() {
       await connect();
       return;
     }
-    if (!kitchen || !ready) return;
+    if (!kitchenReady || !kitchen || !ready) return;
     setReviewOpen(false);
     setPhase("staging");
     setNotice("");
@@ -495,9 +499,9 @@ export function KitchenLab() {
         `${recipe.action} submitted: ${hash}. The bonus result is recorded on-chain.`,
       );
       setReceipt({
-        state: "success",
-        title: `${output.name} is on the pass`,
-        detail: `Submitted ${recipe.output.amount * quantity} ${output.symbol}. Bonus rolls resolve in the same operation.`,
+        state: "submitted",
+        title: `${output.name} submitted`,
+        detail: `Submitted ${recipe.output.amount * quantity} ${output.symbol}. Wait for the activity center to verify that the operation applied.`,
         hash,
       });
       refresh();
@@ -519,7 +523,7 @@ export function KitchenLab() {
       await connect().catch(() => undefined);
       return;
     }
-    if (kitchen && ready) setReviewOpen(true);
+    if (kitchenReady && ready) setReviewOpen(true);
   };
 
   const reviewRows: TransactionReviewRow[] = [
@@ -589,20 +593,23 @@ export function KitchenLab() {
         </div>
       </header>
 
-      {!kitchen && (
+      {!kitchenReady && (
         <div className="system-notice">
           <LockKeyhole size={20} />
           <div>
-            <strong>On-chain kitchen is awaiting deployment</strong>
+            <strong>On-chain kitchen is safety-locked</strong>
             <p>
               Recipe validation is live against your wallet. Burning inputs and
               minting outputs stays locked until{" "}
-              <code>
-                {networkConfig.isTestnet
-                  ? "NEXT_PUBLIC_TESTNET_ASSET_CONTRACT"
-                  : "NEXT_PUBLIC_KITCHEN_CONTRACT"}
-              </code>{" "}
-              is configured.
+              {networkConfig.isTestnet ? (
+                <>
+                  the reviewed contract address and exact TzKT code hash are
+                  configured
+                </>
+              ) : (
+                <code>NEXT_PUBLIC_KITCHEN_CONTRACT</code>
+              )}
+              .
             </p>
           </div>
         </div>
@@ -885,11 +892,23 @@ export function KitchenLab() {
               className="button button--primary"
               type="button"
               onClick={() => void requestCraft()}
-              disabled={!kitchen || busy || (Boolean(address) && !ready)}
-              title={!kitchen ? "Kitchen contract required" : !ready ? "Missing ingredients" : "Craft on-chain"}
+              disabled={
+                !kitchenReady || busy || (Boolean(address) && !ready)
+              }
+              title={
+                !kitchenReady
+                  ? "Reviewed kitchen deployment required"
+                  : !ready
+                    ? "Missing ingredients"
+                    : "Craft on-chain"
+              }
             >
-              {!kitchen ? <LockKeyhole size={18} /> : <Flame size={18} />}
-              {!kitchen
+              {!kitchenReady ? (
+                <LockKeyhole size={18} />
+              ) : (
+                <Flame size={18} />
+              )}
+              {!kitchenReady
                 ? "Contract locked"
                 : !address
                   ? "Connect wallet"

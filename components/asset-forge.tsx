@@ -55,7 +55,7 @@ export function AssetForge() {
   const [notice, setNotice] = useState("");
   const [review, setReview] = useState<ForgeReview>(null);
   const [receipt, setReceipt] = useState<{
-    state: "pending" | "success" | "error";
+    state: "pending" | "submitted" | "success" | "error";
     title: string;
     detail: string;
     hash?: string;
@@ -102,9 +102,10 @@ export function AssetForge() {
       await actionDelay(interfaceTimings.forgeCool);
       setNotice(`${label} submitted: ${hash}`);
       setReceipt({
-        state: "success",
+        state: "submitted",
         title: `${label} submitted`,
-        detail: "The test assets will appear after the indexer processes the operation.",
+        detail:
+          "The operation is submitted. The activity center will verify that it applies before balances refresh.",
         hash,
       });
       window.setTimeout(inventory.refresh, 6000);

@@ -15,6 +15,11 @@ import {
   type ActivityKind,
 } from "@/components/activity-provider";
 import { networkConfig } from "@/lib/network";
+import {
+  activeWalletAddress,
+  assertDisplayedWallet,
+} from "@/lib/wallet-account";
+import type { ContractReadiness } from "@/lib/contract-readiness";
 
 type WalletStatus =
   | "idle"
@@ -61,6 +66,20 @@ type WalletContextValue = {
 
 const WalletContext = createContext<WalletContextValue | null>(null);
 let walletInstance: BeaconWallet | null = null;
+type ActiveAccount = {
+  address?: unknown;
+  network?: { type?: unknown };
+};
+const activeAccountListeners = new Set<
+  (account: ActiveAccount | undefined) => void
+>();
+const fingerprintedEntrypoints = new Set([
+  "claim_starter",
+  "craft",
+  "mint_test_asset",
+  "mint_test_collection",
+  "replate",
+]);
 
 function contractActivity(entrypoint: string): {
   kind: ActivityKind;
@@ -105,9 +124,10 @@ async function getWallet() {
   });
   await walletInstance.client.subscribeToEvent(
     BeaconEvent.ACTIVE_ACCOUNT_SET,
-    () => undefined,
+    (account) => {
+      activeAccountListeners.forEach((listener) => listener(account));
+    },
   );
-
   return walletInstance;
 }
 
@@ -121,22 +141,50 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     const revision = sessionRevision.current;
+    const handleActiveAccount = (nextAccount: ActiveAccount | undefined) => {
+      if (!active) return;
+      sessionRevision.current += 1;
+      if (!nextAccount) {
+        setAddress("");
+        setError("");
+        setStatus("idle");
+        return;
+      }
+      try {
+        setAddress(activeWalletAddress(nextAccount, networkConfig.id));
+        setError("");
+        setStatus("idle");
+      } catch (cause) {
+        setAddress("");
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "The wallet account is unavailable.",
+        );
+        setStatus("error");
+      }
+    };
+    activeAccountListeners.add(handleActiveAccount);
     getWallet()
       .then((wallet) => wallet.client.getActiveAccount())
       .then((account) => {
         if (
           active &&
           revision === sessionRevision.current &&
-          account?.address &&
-          account.network.type === networkConfig.id
+          account
         ) {
-          setAddress(account.address);
+          try {
+            setAddress(activeWalletAddress(account, networkConfig.id));
+          } catch {
+            setAddress("");
+          }
         }
       })
       .catch(() => undefined);
 
     return () => {
       active = false;
+      activeAccountListeners.delete(handleActiveAccount);
     };
   }, []);
 
@@ -192,6 +240,51 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return tezos;
   }, []);
 
+  const assertCurrentAccount = useCallback(async () => {
+    const wallet = await getWallet();
+    const account = await wallet.client.getActiveAccount();
+    try {
+      assertDisplayedWallet(account, address, networkConfig.id);
+    } catch (cause) {
+      sessionRevision.current += 1;
+      try {
+        setAddress(activeWalletAddress(account, networkConfig.id));
+      } catch {
+        setAddress("");
+      }
+      throw cause;
+    }
+    return wallet;
+  }, [address]);
+
+  const assertCompatibleContract = useCallback(
+    async (contract: string, entrypoint: string) => {
+      if (!networkConfig.isTestnet) return;
+      if (entrypoint === "buy") {
+        throw new Error(
+          "Shadownet checkout is locked because the current contract does not enforce price or stock on-chain.",
+        );
+      }
+      if (!fingerprintedEntrypoints.has(entrypoint)) return;
+      if (contract !== networkConfig.assetContract) {
+        throw new Error(
+          "This action targets an unreviewed Shadownet contract.",
+        );
+      }
+      const response = await fetch("/api/contract-readiness", {
+        cache: "no-store",
+      });
+      const readiness = (await response.json()) as ContractReadiness;
+      if (!response.ok || !readiness.ready) {
+        throw new Error(
+          readiness.reason ||
+            "Contract compatibility could not be verified.",
+        );
+      }
+    },
+    [],
+  );
+
   const transfer = useCallback(
     async (request: TransferRequest) => {
       if (!address) throw new Error("Connect a wallet before transferring.");
@@ -204,6 +297,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setError("");
 
       try {
+        await assertCurrentAccount();
+        if (request.from !== address) {
+          throw new Error(
+            "The transfer source does not match the active wallet account.",
+          );
+        }
         const tezos = await toolkit();
         const token = await tezos.wallet.at(request.contract);
         const operation = await token.methodsObject
@@ -234,6 +333,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     },
     [
       address,
+      assertCurrentAccount,
       failActivity,
       startActivity,
       submitActivity,
@@ -258,6 +358,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setError("");
 
       try {
+        await assertCurrentAccount();
+        await assertCompatibleContract(contract, entrypoint);
         const tezos = await toolkit();
         const target = await tezos.wallet.at(contract);
         const method = target.methodsObject[entrypoint];
@@ -283,6 +385,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     },
     [
       address,
+      assertCompatibleContract,
+      assertCurrentAccount,
       failActivity,
       startActivity,
       submitActivity,
@@ -309,6 +413,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setError("");
 
       try {
+        await assertCurrentAccount();
+        for (const request of requests) {
+          await assertCompatibleContract(
+            request.contract,
+            request.entrypoint,
+          );
+        }
         const tezos = await toolkit();
         const batch = tezos.wallet.batch();
         for (const request of requests) {
@@ -342,6 +453,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     },
     [
       address,
+      assertCompatibleContract,
+      assertCurrentAccount,
       failActivity,
       startActivity,
       submitActivity,
@@ -362,10 +475,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setError("");
 
       try {
-        const [{ SigningType }, { stringToBytes }, wallet] = await Promise.all([
+        const wallet = await assertCurrentAccount();
+        const [{ SigningType }, { stringToBytes }] = await Promise.all([
           import("@taquito/beacon-wallet/types"),
           import("@taquito/utils"),
-          getWallet(),
         ]);
         const account = await wallet.client.getActiveAccount();
         const publicKey = account?.publicKey || (await wallet.getPK());
@@ -386,7 +499,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         throw cause;
       }
     },
-    [address, failActivity, startActivity, submitActivity],
+    [
+      address,
+      assertCurrentAccount,
+      failActivity,
+      startActivity,
+      submitActivity,
+    ],
   );
 
   const value = useMemo(

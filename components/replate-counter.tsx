@@ -170,7 +170,7 @@ export function ReplateCounter() {
         undefined,
       );
       await actionDelay(interfaceTimings.claimStamp);
-      setNotice(`Legacy rehearsal servings claimed: ${hash}`);
+      setNotice(`Legacy rehearsal claim submitted: ${hash}`);
       window.setTimeout(refresh, 6_000);
     } catch (cause) {
       setNotice(friendlyWalletError(cause, "The legacy claim failed."));
@@ -233,12 +233,12 @@ export function ReplateCounter() {
         },
       ]);
       setPhase("serving");
-      setNotice(
-        "Ticket accepted. The counter is serving your replacement...",
-      );
+      setNotice("Ticket submitted. Waiting for chain confirmation...");
       await actionDelay(interfaceTimings.replateServe);
       setResult({ slug: asset.item.slug, amount: displayAmount, hash });
-      setNotice("Replate ticket submitted. Your replacement is on the plate.");
+      setNotice(
+        "Replate ticket submitted. Verify applied confirmation in the activity center before treating the replacement as delivered.",
+      );
       setAcknowledged(false);
       window.setTimeout(refresh, 6_000);
     } catch (cause) {
@@ -598,7 +598,7 @@ export function ReplateCounter() {
           </p>
           {notice && (
             <p
-              className={`replate-notice${result ? " is-success" : ""}`}
+              className="replate-notice"
               role="status"
             >
               {notice}
