@@ -22,8 +22,10 @@ import type { ContractReadiness } from "@/lib/contract-readiness";
 import {
   assertWalletOperation,
   captureWalletOperation,
+  guardWalletProvider,
   type WalletOperationSession,
 } from "@/lib/wallet-operation";
+import type { WalletProvider as TaquitoWalletProvider } from "@taquito/taquito";
 
 type WalletStatus =
   | "idle"
@@ -249,11 +251,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setStatus(inFlightOperations.current > 0 ? "error" : "idle");
   }, []);
 
-  const toolkit = useCallback(async () => {
-    const [{ TezosToolkit }, wallet] = await Promise.all([
-      import("@taquito/taquito"),
-      getWallet(),
-    ]);
+  const toolkit = useCallback(async (wallet: TaquitoWalletProvider) => {
+    const { TezosToolkit } = await import("@taquito/taquito");
     const tezos = new TezosToolkit(networkConfig.rpcUrl);
     tezos.setWalletProvider(wallet);
     return tezos;
@@ -358,15 +357,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       let session: WalletOperationSession | null = null;
 
       try {
-        session = await captureOperationSession(address);
-        if (request.from !== session.address) {
+        const operationSession = await captureOperationSession(address);
+        session = operationSession;
+        if (request.from !== operationSession.address) {
           throw new Error(
             "The transfer source does not match the active wallet account.",
           );
         }
-        const tezos = await toolkit();
+        const wallet = await getWallet();
+        const tezos = await toolkit(
+          guardWalletProvider(wallet, () =>
+            assertOperationSession(operationSession).then(() => undefined),
+          ),
+        );
         const token = await tezos.wallet.at(request.contract);
-        await assertOperationSession(session);
+        await assertOperationSession(operationSession);
         const operation = await token.methodsObject
           .transfer([
             {
@@ -426,12 +431,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       try {
         await assertCompatibleContract(contract, entrypoint);
-        session = await captureOperationSession(address);
-        const tezos = await toolkit();
+        const operationSession = await captureOperationSession(address);
+        session = operationSession;
+        const wallet = await getWallet();
+        const tezos = await toolkit(
+          guardWalletProvider(wallet, () =>
+            assertOperationSession(operationSession).then(() => undefined),
+          ),
+        );
         const target = await tezos.wallet.at(contract);
         const method = target.methodsObject[entrypoint];
         if (!method) throw new Error(`Missing ${entrypoint} entrypoint.`);
-        await assertOperationSession(session);
+        await assertOperationSession(operationSession);
         const operation = await (parameter === undefined
           ? method()
           : method(parameter)
@@ -492,8 +503,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             request.entrypoint,
           );
         }
-        session = await captureOperationSession(address);
-        const tezos = await toolkit();
+        const operationSession = await captureOperationSession(address);
+        session = operationSession;
+        const wallet = await getWallet();
+        const tezos = await toolkit(
+          guardWalletProvider(wallet, () =>
+            assertOperationSession(operationSession).then(() => undefined),
+          ),
+        );
         const batch = tezos.wallet.batch();
         for (const request of requests) {
           const target = await tezos.wallet.at(request.contract);
@@ -511,7 +528,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             },
           );
         }
-        await assertOperationSession(session);
+        await assertOperationSession(operationSession);
         const operation = await batch.send();
         submitActivity(activityId, operation.opHash);
         finishOperation(session, "idle");

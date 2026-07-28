@@ -1,4 +1,5 @@
 import { assertDisplayedWallet } from "./wallet-account.ts";
+import type { WalletProvider } from "@taquito/taquito";
 
 type ActiveAccount = {
   address?: unknown;
@@ -42,4 +43,23 @@ export function assertWalletOperation({
     );
   }
   assertDisplayedWallet(account, session.address, expectedNetwork);
+}
+
+export function guardWalletProvider(
+  wallet: WalletProvider,
+  assertSession: () => void | Promise<void>,
+): WalletProvider {
+  return new Proxy(wallet, {
+    get(target, property) {
+      if (property === "sendOperations") {
+        return async (params: unknown[]) => {
+          await assertSession();
+          return target.sendOperations(params);
+        };
+      }
+
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
 }
