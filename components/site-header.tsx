@@ -60,6 +60,7 @@ export function SiteHeader() {
               href={item.href}
               key={item.href}
               className={pathname === item.href ? "is-active" : undefined}
+              aria-current={pathname === item.href ? "page" : undefined}
             >
               {item.label}
             </Link>
@@ -77,6 +78,7 @@ export function SiteHeader() {
                   href={item.href}
                   key={item.href}
                   className={pathname === item.href ? "is-active" : undefined}
+                  aria-current={pathname === item.href ? "page" : undefined}
                 >
                   {item.label}
                 </Link>
@@ -113,6 +115,7 @@ export function SiteHeader() {
             <Link
               href={item.href}
               key={item.href}
+              aria-current={pathname === item.href ? "page" : undefined}
               onClick={() => setOpen(false)}
             >
               <span>0{index + 1}</span>
@@ -126,13 +129,18 @@ export function SiteHeader() {
         className="mobile-game-bar"
         aria-label="Game shortcuts"
       >
-        <Link href="/" className={pathname === "/" ? "is-active" : undefined}>
+        <Link
+          href="/"
+          className={pathname === "/" ? "is-active" : undefined}
+          aria-current={pathname === "/" ? "page" : undefined}
+        >
           <House />
           <span>Pantry</span>
         </Link>
         <Link
           href="/kitchen"
           className={pathname === "/kitchen" ? "is-active" : undefined}
+          aria-current={pathname === "/kitchen" ? "page" : undefined}
         >
           <ChefHat />
           <span>Kitchen</span>
@@ -140,6 +148,7 @@ export function SiteHeader() {
         <Link
           href="/market"
           className={pathname === "/market" ? "is-active" : undefined}
+          aria-current={pathname === "/market" ? "page" : undefined}
         >
           <ShoppingBasket />
           <span>Market</span>
@@ -147,6 +156,7 @@ export function SiteHeader() {
         <Link
           href="/trades"
           className={pathname === "/trades" ? "is-active" : undefined}
+          aria-current={pathname === "/trades" ? "page" : undefined}
         >
           <ArrowRightLeft />
           <span>Offers</span>

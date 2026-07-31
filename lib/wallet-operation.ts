@@ -2,6 +2,7 @@ import { assertDisplayedWallet } from "./wallet-account.ts";
 import type { WalletProvider } from "@taquito/taquito";
 
 const OPERATION_REQUEST_SCOPE = "operation_request";
+const SIGN_REQUEST_SCOPE = "sign";
 
 type ActiveAccount = {
   address?: unknown;
@@ -9,14 +10,14 @@ type ActiveAccount = {
   scopes?: unknown;
 };
 
-type BeaconOperationClient = {
+type BeaconClient = {
   getActiveAccount: () => Promise<ActiveAccount | undefined>;
+};
+
+type BeaconOperationClient = BeaconClient & {
   requestOperation: (request: {
     operationDetails: unknown[];
   }) => Promise<{ transactionHash: string }>;
-  transport?: Promise<BeaconTransport>;
-  multiTabChannel?: BeaconMultiTabChannel;
-  [key: PropertyKey]: unknown;
 };
 
 type BeaconWalletProvider = WalletProvider & {
@@ -105,9 +106,11 @@ function dynamicOverride(getValue: () => unknown): GuardedOverride {
   return { [guardedOverride]: getValue };
 }
 
-function assertAuthorizedOperationAccount(
+function assertAuthorizedAccount(
   account: ActiveAccount | undefined,
   assertSession: (account?: ActiveAccount) => void,
+  requiredScope: string,
+  requestLabel: string,
 ): asserts account is ActiveAccount {
   if (!account) {
     throw new Error(
@@ -117,22 +120,24 @@ function assertAuthorizedOperationAccount(
   assertSession(account);
 
   const scopes = Array.isArray(account.scopes) ? account.scopes : [];
-  if (!scopes.includes(OPERATION_REQUEST_SCOPE)) {
+  if (!scopes.includes(requiredScope)) {
     throw new Error(
-      "The wallet has not granted permission to submit operations.",
+      `The wallet has not granted permission to ${requestLabel}.`,
     );
   }
 }
 
-function guardBeaconClient(
-  client: BeaconOperationClient,
+function guardBeaconClient<Client extends BeaconClient>(
+  client: Client,
   initialAccount: ActiveAccount,
   assertSession: (account?: ActiveAccount) => void,
-): BeaconOperationClient {
-  let operationAccount = initialAccount;
+  requiredScope: string,
+  requestLabel: string,
+): Client {
+  let authorizedAccount = initialAccount;
   const expectedAddress = initialAccount.address;
 
-  const assertOperationRequest = (request: unknown) => {
+  const assertAuthorizedRequest = (request: unknown) => {
     if (
       typeof request !== "object" ||
       request === null ||
@@ -143,13 +148,23 @@ function guardBeaconClient(
         "The Beacon operation source does not match the reviewed wallet account.",
       );
     }
-    assertAuthorizedOperationAccount(operationAccount, assertSession);
+    assertAuthorizedAccount(
+      authorizedAccount,
+      assertSession,
+      requiredScope,
+      requestLabel,
+    );
   };
 
   const guardTransport = (transport: BeaconTransport) =>
     bindGuardedObject(transport, {
       send: (...args: unknown[]) => {
-        assertAuthorizedOperationAccount(operationAccount, assertSession);
+        assertAuthorizedAccount(
+          authorizedAccount,
+          assertSession,
+          requiredScope,
+          requestLabel,
+        );
         return transport.send(...args);
       },
     });
@@ -157,7 +172,12 @@ function guardBeaconClient(
   const guardMultiTabChannel = (channel: BeaconMultiTabChannel) =>
     bindGuardedObject(channel, {
       postMessage: (...args: unknown[]) => {
-        assertAuthorizedOperationAccount(operationAccount, assertSession);
+        assertAuthorizedAccount(
+          authorizedAccount,
+          assertSession,
+          requiredScope,
+          requestLabel,
+        );
         return channel.postMessage(...args);
       },
     });
@@ -165,20 +185,29 @@ function guardBeaconClient(
   const proxy = bindGuardedObject(client, {
     getActiveAccount: async () => {
       const account = await client.getActiveAccount();
-      assertAuthorizedOperationAccount(account, assertSession);
-      operationAccount = account;
+      assertAuthorizedAccount(
+        account,
+        assertSession,
+        requiredScope,
+        requestLabel,
+      );
+      authorizedAccount = account;
       return account;
     },
-    transport: dynamicOverride(() =>
-      client.transport?.then(guardTransport),
-    ),
-    multiTabChannel: dynamicOverride(() =>
-      client.multiTabChannel
-        ? guardMultiTabChannel(client.multiTabChannel)
-        : undefined,
-    ),
+    transport: dynamicOverride(() => {
+      const transport = Reflect.get(client, "transport") as
+        | Promise<BeaconTransport>
+        | undefined;
+      return transport?.then(guardTransport);
+    }),
+    multiTabChannel: dynamicOverride(() => {
+      const channel = Reflect.get(client, "multiTabChannel") as
+        | BeaconMultiTabChannel
+        | undefined;
+      return channel ? guardMultiTabChannel(channel) : undefined;
+    }),
     makeRequest: (request: unknown, ...args: unknown[]) => {
-      assertOperationRequest(request);
+      assertAuthorizedRequest(request);
       const makeRequest = Reflect.get(client, "makeRequest");
       if (typeof makeRequest !== "function") {
         throw new Error(
@@ -188,7 +217,7 @@ function guardBeaconClient(
       return Reflect.apply(makeRequest, proxy, [request, ...args]);
     },
     makeRequestBC: (request: unknown, ...args: unknown[]) => {
-      assertOperationRequest(request);
+      assertAuthorizedRequest(request);
       const makeRequestBC = Reflect.get(client, "makeRequestBC");
       if (typeof makeRequestBC !== "function") {
         throw new Error(
@@ -217,12 +246,19 @@ export function guardWalletProvider(
           }
 
           const account = await client.getActiveAccount();
-          assertAuthorizedOperationAccount(account, assertSession);
+          assertAuthorizedAccount(
+            account,
+            assertSession,
+            OPERATION_REQUEST_SCOPE,
+            "submit operations",
+          );
 
           const guardedClient = guardBeaconClient(
             client,
             account,
             assertSession,
+            OPERATION_REQUEST_SCOPE,
+            "submit operations",
           );
           const { transactionHash } = await guardedClient.requestOperation({
             operationDetails: params,
@@ -235,4 +271,39 @@ export function guardWalletProvider(
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
+}
+
+export async function requestWalletSignature<
+  Request extends { payload: string; sourceAddress?: string },
+  Response extends { signature: string },
+>(
+  client:
+    | (BeaconClient & {
+        requestSignPayload: (request: Request) => Promise<Response>;
+      })
+    | undefined,
+  request: Request,
+  assertSession: (account?: ActiveAccount) => void,
+) {
+  if (!client) {
+    throw new Error(
+      "The Beacon signing client is unavailable. Reconnect the wallet and try again.",
+    );
+  }
+
+  const account = await client.getActiveAccount();
+  assertAuthorizedAccount(
+    account,
+    assertSession,
+    SIGN_REQUEST_SCOPE,
+    "sign payloads",
+  );
+  const guardedClient = guardBeaconClient(
+    client,
+    account,
+    assertSession,
+    SIGN_REQUEST_SCOPE,
+    "sign payloads",
+  );
+  return guardedClient.requestSignPayload(request);
 }

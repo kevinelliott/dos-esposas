@@ -133,6 +133,16 @@ Revoking a manager immediately removes both metadata update powers. Recipe
 ingredients, outputs, burn behavior, and drop tables are immutable so the
 build-pinned policy reviewed before signing cannot drift after origination.
 
+The policy digest is deliberately portable across originations; it is not proof
+of who originated a particular contract or what supply was created. A separate
+deployment-manifest v2 is generated only after TzKT indexes the replacement
+origination. It commits to the Shadownet chain ID, origination operation and
+contract address, administrator, every initial ledger and supply row, all token
+metadata, and the immutable policy. The deployer checks that each token's
+initial supply exactly equals the sum of its ledger balances and refuses to
+publish environment configuration when the indexed snapshot differs from the
+compiled storage.
+
 ### Manager commands
 
 The deployment account grants or revokes a manager:

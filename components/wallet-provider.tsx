@@ -23,8 +23,10 @@ import {
   assertWalletOperation,
   captureWalletOperation,
   guardWalletProvider,
+  requestWalletSignature,
   type WalletOperationSession,
 } from "@/lib/wallet-operation";
+import { WalletRuntime } from "@/lib/wallet-runtime";
 import type { WalletProvider as TaquitoWalletProvider } from "@taquito/taquito";
 
 type WalletStatus =
@@ -71,7 +73,6 @@ type WalletContextValue = {
 };
 
 const WalletContext = createContext<WalletContextValue | null>(null);
-let walletInstance: BeaconWallet | null = null;
 type ActiveAccount = {
   address?: unknown;
   network?: { type?: unknown };
@@ -109,41 +110,59 @@ function contractActivity(entrypoint: string): {
   return { kind: "transaction", title: "Contract transaction" };
 }
 
+const walletRuntime = new WalletRuntime<BeaconWallet>(
+  async ({ isCurrent }) => {
+    const [{ BeaconEvent, BeaconWallet }, { NetworkType }] = await Promise.all([
+      import("@taquito/beacon-wallet"),
+      import("@taquito/beacon-wallet/types"),
+    ]);
+    const networkType = networkConfig.isTestnet
+      ? NetworkType.SHADOWNET
+      : NetworkType.MAINNET;
+
+    const wallet = new BeaconWallet({
+      name: process.env.NEXT_PUBLIC_TEZOS_DAPP_NAME ?? "Dos Esposas",
+      network: {
+        type: networkType,
+        rpcUrl: networkConfig.rpcUrl,
+      },
+      enableMetrics: false,
+    });
+    await wallet.client.subscribeToEvent(
+      BeaconEvent.ACTIVE_ACCOUNT_SET,
+      (account) => {
+        if (!isCurrent()) return;
+        activeAccountListeners.forEach((listener) => listener(account));
+      },
+    );
+    return wallet;
+  },
+  async (wallet) => {
+    await wallet.clearActiveAccount().catch(() => undefined);
+    await wallet.disconnect().catch(() => undefined);
+  },
+);
+
 async function getWallet() {
-  if (walletInstance) return walletInstance;
-
-  const [{ BeaconEvent, BeaconWallet }, { NetworkType }] = await Promise.all([
-    import("@taquito/beacon-wallet"),
-    import("@taquito/beacon-wallet/types"),
-  ]);
-  const networkType = networkConfig.isTestnet
-    ? NetworkType.SHADOWNET
-    : NetworkType.MAINNET;
-
-  walletInstance = new BeaconWallet({
-    name: process.env.NEXT_PUBLIC_TEZOS_DAPP_NAME ?? "Dos Esposas",
-    network: {
-      type: networkType,
-      rpcUrl: networkConfig.rpcUrl,
-    },
-    enableMetrics: false,
-  });
-  await walletInstance.client.subscribeToEvent(
-    BeaconEvent.ACTIVE_ACCOUNT_SET,
-    (account) => {
-      activeAccountListeners.forEach((listener) => listener(account));
-    },
-  );
-  return walletInstance;
+  return walletRuntime.get();
 }
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const { failActivity, startActivity, submitActivity } = useActivity();
+  const {
+    failActivity,
+    setActiveAccount,
+    startActivity,
+    submitActivity,
+  } = useActivity();
   const [address, setAddress] = useState("");
   const [status, setStatus] = useState<WalletStatus>("idle");
   const [error, setError] = useState("");
   const sessionRevision = useRef(0);
   const inFlightOperations = useRef(0);
+
+  useEffect(() => {
+    setActiveAccount(address);
+  }, [address, setActiveAccount]);
 
   useEffect(() => {
     let active = true;
@@ -187,10 +206,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     };
     activeAccountListeners.add(handleActiveAccount);
     getWallet()
-      .then((wallet) => wallet.client.getActiveAccount())
-      .then((account) => {
+      .then(async (wallet) => {
+        const generation = walletRuntime.currentGeneration;
+        const account = await wallet.client.getActiveAccount();
         if (
           active &&
+          walletRuntime.isCurrent(wallet, generation) &&
           revision === sessionRevision.current &&
           account
         ) {
@@ -211,26 +232,41 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const connect = useCallback(async () => {
     sessionRevision.current += 1;
+    const revision = sessionRevision.current;
     setStatus("connecting");
     setError("");
 
     try {
-      const wallet = await getWallet();
-      let account = await wallet.client.getActiveAccount();
-      if (account && account.network.type !== networkConfig.id) {
-        await wallet.clearActiveAccount();
-        account = undefined;
+      await walletRuntime.connect(async (wallet, generation) => {
+        let account = await wallet.client.getActiveAccount();
+        if (account && account.network.type !== networkConfig.id) {
+          await wallet.clearActiveAccount();
+          account = undefined;
+        }
+        if (!account) {
+          await wallet.requestPermissions();
+          account = await wallet.client.getActiveAccount();
+        }
+        if (!account?.address) {
+          throw new Error("No wallet account was returned.");
+        }
+        if (!walletRuntime.isCurrent(wallet, generation)) {
+          throw new Error(
+            "The wallet connection changed while the request was in progress. Try again.",
+          );
+        }
+        setAddress(account.address);
+      });
+      if (revision === sessionRevision.current) {
+        setStatus("idle");
       }
-      if (!account) {
-        await wallet.requestPermissions();
-        account = await wallet.client.getActiveAccount();
-      }
-      if (!account?.address) throw new Error("No wallet account was returned.");
-      setAddress(account.address);
-      setStatus("idle");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Connection cancelled.");
-      setStatus("error");
+      if (revision === sessionRevision.current) {
+        setError(
+          cause instanceof Error ? cause.message : "Connection cancelled.",
+        );
+        setStatus("error");
+      }
       throw cause;
     }
   }, []);
@@ -241,13 +277,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setError("");
     setStatus("disconnecting");
 
-    const wallet = await getWallet().catch(() => null);
-    if (wallet) {
-      await wallet.clearActiveAccount().catch(() => undefined);
-      await wallet.disconnect().catch(() => undefined);
-    }
-
-    walletInstance = null;
+    await walletRuntime.disconnect().catch(() => undefined);
     setStatus(inFlightOperations.current > 0 ? "error" : "idle");
   }, []);
 
@@ -595,11 +625,22 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         const account = await wallet.client.getActiveAccount();
         const publicKey = account?.publicKey || (await wallet.getPK());
         await assertOperationSession(session);
-        const response = await wallet.client.requestSignPayload({
-          signingType: SigningType.RAW,
-          payload: stringToBytes(message),
-          sourceAddress: session.address,
-        });
+        const response = await requestWalletSignature(
+          wallet.client,
+          {
+            signingType: SigningType.RAW,
+            payload: stringToBytes(message),
+            sourceAddress: session.address,
+          },
+          (activeAccount) => {
+            assertWalletOperation({
+              session: session!,
+              currentRevision: sessionRevision.current,
+              account: activeAccount,
+              expectedNetwork: networkConfig.id,
+            });
+          },
+        );
         submitActivity(activityId);
         finishOperation(session, "idle");
         return { signature: response.signature, publicKey };

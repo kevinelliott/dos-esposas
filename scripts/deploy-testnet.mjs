@@ -2,6 +2,16 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { InMemorySigner } from "@taquito/signer";
 import { TezosToolkit } from "@taquito/taquito";
+import { Schema } from "@taquito/michelson-encoder";
+import {
+  assertDeploymentIdentity,
+  createDeploymentManifest,
+  hashDeploymentManifest,
+} from "../lib/deployment-manifest.ts";
+import {
+  createContractPolicy,
+  hashContractPolicy,
+} from "../lib/contract-policy.ts";
 import { syncTestnetDescriptions } from "./lib/sync-testnet-descriptions.mjs";
 
 const RPC_URL =
@@ -146,7 +156,126 @@ async function originateContract(tezos, label, code, storage) {
     60_000,
   );
   console.log(`${label} confirmed: ${contractAddress}`);
-  return contractAddress;
+  return { address: contractAddress, operationHash: operation.hash };
+}
+
+function mapEntries(map) {
+  if (!map || typeof map.entries !== "function") {
+    throw new Error("Decoded origination storage contains an invalid map.");
+  }
+  return [...map.entries()].map(([key, value]) => ({ key, value }));
+}
+
+async function fetchJson(url, label) {
+  const response = await fetch(url, {
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`TzKT ${label} lookup failed (${response.status}).`);
+  }
+  return response.json();
+}
+
+async function fetchHistoricalBigMapEntries(bigMapId, level) {
+  if (!/^\d+$/.test(String(bigMapId)) || !Number.isSafeInteger(level)) {
+    throw new Error("Indexed origination storage references invalid history.");
+  }
+  const entries = [];
+  const limit = 1_000;
+  for (let offset = 0; ; offset += limit) {
+    const url = new URL(
+      `/v1/bigmaps/${bigMapId}/historical_keys/${level}`,
+      TZKT_API_URL,
+    );
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", String(offset));
+    url.searchParams.set("select", "key,value");
+    const page = await fetchJson(url, "origination big-map history");
+    if (!Array.isArray(page)) {
+      throw new Error("TzKT returned malformed origination big-map history.");
+    }
+    entries.push(...page);
+    if (page.length < limit) return entries;
+  }
+}
+
+async function readIndexedOrigination({
+  contractAddress,
+  operationHash,
+  expectedChainId,
+  expectedPolicy,
+  expectedLegacyContract,
+}) {
+  const operationPayload = await fetchJson(
+    `${TZKT_API_URL}/v1/operations/originations/${operationHash}`,
+    "origination",
+  );
+  const operation = Array.isArray(operationPayload)
+    ? operationPayload.find((candidate) => candidate?.hash === operationHash)
+    : operationPayload;
+  const indexedAddress =
+    operation?.originatedContract?.address ??
+    operation?.originatedContract ??
+    operation?.contractAddress;
+  if (
+    !operation ||
+    operation.hash !== operationHash ||
+    indexedAddress !== contractAddress ||
+    !Number.isSafeInteger(operation.level)
+  ) {
+    throw new Error(
+      "TzKT origination identity does not match the submitted deployment.",
+    );
+  }
+
+  const storageUrl = new URL(
+    `/v1/contracts/${contractAddress}/storage`,
+    TZKT_API_URL,
+  );
+  storageUrl.searchParams.set("level", String(operation.level));
+  const storage = await fetchJson(storageUrl, "origination storage");
+  const [ledger, supply, tokenMetadata, unitScales, recipes, legacyAssets] =
+    await Promise.all(
+      [
+        "ledger",
+        "supply",
+        "token_metadata",
+        "unit_scales",
+        "recipes",
+        "legacy_assets",
+      ].map((field) =>
+        fetchHistoricalBigMapEntries(storage[field], operation.level),
+      ),
+    );
+  const actualPolicy = createContractPolicy({
+    storage,
+    unitScales,
+    recipes,
+    legacyAssets,
+    expectedLegacyContract,
+  });
+  if (hashContractPolicy(actualPolicy) !== hashContractPolicy(expectedPolicy)) {
+    throw new Error(
+      "Indexed origination economics do not match the compiled policy.",
+    );
+  }
+
+  const manifest = createDeploymentManifest({
+    chainId: expectedChainId,
+    originationOperation: operation.hash,
+    contractAddress: indexedAddress,
+    administrator: storage.administrator,
+    ledger,
+    supply,
+    tokenMetadata,
+    policy: actualPolicy,
+  });
+  assertDeploymentIdentity(manifest, {
+    chainId: expectedChainId,
+    originationOperation: operationHash,
+    contractAddress,
+  });
+  return manifest;
 }
 
 const signer = await InMemorySigner.fromSecretKey(secretKey);
@@ -226,12 +355,13 @@ const legacyStorage = replaceAddresses(
   legacyInitialStorage,
   new Map([[PLACEHOLDER_ADMIN, address]]),
 );
-const legacyContractAddress = await originateContract(
+const legacyOrigination = await originateContract(
   tezos,
   "Dos Esposas legacy rehearsal assets",
   legacyCode,
   legacyStorage,
 );
+const legacyContractAddress = legacyOrigination.address;
 const replacementStorage = replaceAddresses(
   replacementInitialStorage,
   new Map([
@@ -239,12 +369,13 @@ const replacementStorage = replaceAddresses(
     [PLACEHOLDER_LEGACY, legacyContractAddress],
   ]),
 );
-const contractAddress = await originateContract(
+const replacementOrigination = await originateContract(
   tezos,
   "Dos Esposas replacement assets",
   replacementCode,
   replacementStorage,
 );
+const contractAddress = replacementOrigination.address;
 
 let indexedContract = null;
 const indexed = await waitForState(
@@ -270,6 +401,58 @@ if (!indexed || !indexedContract) {
 }
 const contractCodeHash = String(indexedContract.codeHash);
 
+if (
+  hashContractPolicy(policyManifest.policy) !== policyManifest.sha256
+) {
+  throw new Error("The compiled policy manifest digest is invalid.");
+}
+const storageType = replacementCode.find(
+  (section) => section.prim === "storage",
+)?.args?.[0];
+if (!storageType) {
+  throw new Error("Compiled replacement contract has no storage type.");
+}
+const decodedExpectedStorage = new Schema(storageType).Execute(
+  replacementStorage,
+);
+const expectedDeploymentManifest = createDeploymentManifest({
+  chainId,
+  originationOperation: replacementOrigination.operationHash,
+  contractAddress,
+  administrator: decodedExpectedStorage.administrator,
+  ledger: mapEntries(decodedExpectedStorage.ledger),
+  supply: mapEntries(decodedExpectedStorage.supply),
+  tokenMetadata: mapEntries(decodedExpectedStorage.token_metadata),
+  policy: policyManifest.policy,
+});
+const deploymentManifest = await readIndexedOrigination({
+  contractAddress,
+  operationHash: replacementOrigination.operationHash,
+  expectedChainId: chainId,
+  expectedPolicy: policyManifest.policy,
+  expectedLegacyContract: legacyContractAddress,
+});
+const expectedDeploymentHash = hashDeploymentManifest(
+  expectedDeploymentManifest,
+);
+const deploymentManifestHash = hashDeploymentManifest(deploymentManifest);
+if (deploymentManifestHash !== expectedDeploymentHash) {
+  throw new Error(
+    "Indexed origination authority, ledger, supply, or token metadata does not match the reviewed deployment.",
+  );
+}
+writeFileSync(
+  resolve("contracts/testnet/build/deployment-manifest.json"),
+  `${JSON.stringify(
+    { sha256: deploymentManifestHash, manifest: deploymentManifest },
+    null,
+    2,
+  )}\n`,
+);
+console.log(
+  `Verified and wrote deployment manifest v2 (${deploymentManifestHash}).`,
+);
+
 const env = [
   'NEXT_PUBLIC_TEZOS_DAPP_NAME="Dos Esposas Test Lab"',
   'NEXT_PUBLIC_TEZOS_NETWORK="shadownet"',
@@ -277,6 +460,7 @@ const env = [
   `NEXT_PUBLIC_TESTNET_ASSET_CONTRACT="${contractAddress}"`,
   `NEXT_PUBLIC_TESTNET_CONTRACT_CODE_HASH="${contractCodeHash}"`,
   `NEXT_PUBLIC_TESTNET_POLICY_HASH="${policyManifest.sha256}"`,
+  `NEXT_PUBLIC_TESTNET_DEPLOYMENT_MANIFEST_HASH="${deploymentManifestHash}"`,
   `NEXT_PUBLIC_TESTNET_LEGACY_CONTRACT="${legacyContractAddress}"`,
   `NEXT_PUBLIC_TESTNET_SYSTEM_WALLET="${address}"`,
   `NEXT_PUBLIC_MARKETPLACE_CONTRACT="${contractAddress}"`,

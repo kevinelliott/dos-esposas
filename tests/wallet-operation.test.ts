@@ -5,6 +5,7 @@ import {
   assertWalletOperation,
   captureWalletOperation,
   guardWalletProvider,
+  requestWalletSignature,
 } from "../lib/wallet-operation.ts";
 import { TezosToolkit, type WalletProvider } from "@taquito/taquito";
 
@@ -15,10 +16,15 @@ const { DAppClient } = beaconRequire("@ecadlabs/beacon-dapp") as {
       requestOperation: (request: {
         operationDetails: unknown[];
       }) => Promise<{ transactionHash: string }>;
+      requestSignPayload: (request: {
+        payload: string;
+        sourceAddress?: string;
+      }) => Promise<{ signature: string }>;
     };
   };
 };
 const operationRequestScope = "operation_request";
+const signRequestScope = "sign";
 
 const accountA = {
   address: "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
@@ -528,3 +534,224 @@ test("fails closed when the final Beacon client boundary is unavailable", async 
   );
   assert.equal(walletRequests, 0);
 });
+
+for (const dispatchKind of ["transport", "broadcast"] as const) {
+  test(`blocks a repeated-account sign-scope downgrade before Beacon ${dispatchKind} dispatch`, async () => {
+    let accountReads = 0;
+    let sends = 0;
+    let posts = 0;
+    const scopedAccount = {
+      ...accountA,
+      scopes: [signRequestScope],
+    };
+    const unscopedAccount = {
+      ...accountA,
+      scopes: [],
+    };
+    const client = {
+      getActiveAccount: async () => {
+        accountReads += 1;
+        return accountReads === 1 ? scopedAccount : unscopedAccount;
+      },
+      requestOperation: async () => ({ transactionHash: "unused" }),
+      requestSignPayload: DAppClient.prototype.requestSignPayload,
+      analytics: { track: () => undefined },
+      sendMetrics: () => undefined,
+      buildPayload: async () => ({}),
+      checkMakeRequest: async () => dispatchKind === "transport",
+      makeRequest: async () => {
+        sends += 1;
+        return {
+          message: { signature: "signature" },
+          connectionInfo: {},
+        };
+      },
+      makeRequestBC: async () => {
+        posts += 1;
+        return {
+          message: { signature: "signature" },
+          connectionInfo: {},
+        };
+      },
+    };
+
+    await assert.rejects(
+      requestWalletSignature(
+        client,
+        {
+          payload: "050100",
+          sourceAddress: accountA.address,
+        },
+        (activeAccount) => {
+          assertWalletOperation({
+            session: {
+              revision: 1,
+              address: accountA.address,
+            },
+            currentRevision: 1,
+            account: activeAccount,
+            expectedNetwork: "shadownet",
+          });
+        },
+      ),
+      /not granted permission/,
+    );
+    assert.equal(accountReads, 2);
+    assert.equal(sends, 0);
+    assert.equal(posts, 0);
+  });
+}
+
+for (const dispatchKind of ["transport", "broadcast"] as const) {
+  test(`blocks account drift at Beacon's final ${dispatchKind} sign dispatch`, async () => {
+    let revision = 1;
+    let account = {
+      ...accountA,
+      scopes: [signRequestScope],
+    };
+    let releaseDispatch: () => void = () => undefined;
+    let dispatchStarted: () => void = () => undefined;
+    const dispatchGate = new Promise<void>((resolve) => {
+      releaseDispatch = resolve;
+    });
+    const dispatchEntered = new Promise<void>((resolve) => {
+      dispatchStarted = resolve;
+    });
+    let sends = 0;
+    let posts = 0;
+    const client = {
+      getActiveAccount: async () => account,
+      requestOperation: async () => ({ transactionHash: "unused" }),
+      requestSignPayload: DAppClient.prototype.requestSignPayload,
+      analytics: { track: () => undefined },
+      sendMetrics: () => undefined,
+      buildPayload: async () => ({}),
+      checkMakeRequest: async () => dispatchKind === "transport",
+      transport: Promise.resolve({
+        send: (..._args: unknown[]) => {
+          void _args;
+          sends += 1;
+        },
+      }),
+      multiTabChannel: {
+        postMessage: (..._args: unknown[]) => {
+          void _args;
+          posts += 1;
+        },
+      },
+      makeRequest: async function (request: unknown) {
+        dispatchStarted();
+        await dispatchGate;
+        const transport = await this.transport;
+        await transport.send(request);
+        return {
+          message: { signature: "signature" },
+          connectionInfo: {},
+        };
+      },
+      makeRequestBC: async function (request: unknown) {
+        dispatchStarted();
+        await dispatchGate;
+        this.multiTabChannel.postMessage(request);
+        return {
+          message: { signature: "signature" },
+          connectionInfo: {},
+        };
+      },
+      runRequestErrorSideEffects: async () => undefined,
+      notifySuccess: async () => undefined,
+      getWalletInfo: async () => ({}),
+    };
+
+    const request = requestWalletSignature(
+      client,
+      {
+        payload: "050100",
+        sourceAddress: accountA.address,
+      },
+      (activeAccount) => {
+        assertWalletOperation({
+          session: {
+            revision: 1,
+            address: accountA.address,
+          },
+          currentRevision: revision,
+          account: activeAccount,
+          expectedNetwork: "shadownet",
+        });
+      },
+    );
+    await dispatchEntered;
+    revision += 1;
+    account = {
+      ...accountB,
+      scopes: [signRequestScope],
+    };
+    releaseDispatch();
+
+    await assert.rejects(request, /changed while preparing/);
+    assert.equal(sends, 0);
+    assert.equal(posts, 0);
+  });
+}
+
+for (const dispatchKind of ["transport", "broadcast"] as const) {
+  test(`delegates a stable Beacon ${dispatchKind} sign request exactly once`, async () => {
+    const account = {
+      ...accountA,
+      scopes: [signRequestScope],
+    };
+    let sends = 0;
+    let posts = 0;
+    const client = {
+      getActiveAccount: async () => account,
+      requestOperation: async () => ({ transactionHash: "unused" }),
+      requestSignPayload: DAppClient.prototype.requestSignPayload,
+      analytics: { track: () => undefined },
+      sendMetrics: () => undefined,
+      buildPayload: async () => ({}),
+      checkMakeRequest: async () => dispatchKind === "transport",
+      makeRequest: async (request: { sourceAddress?: string }) => {
+        sends += 1;
+        assert.equal(request.sourceAddress, accountA.address);
+        return {
+          message: { signature: "signature" },
+          connectionInfo: {},
+        };
+      },
+      makeRequestBC: async (request: { sourceAddress?: string }) => {
+        posts += 1;
+        assert.equal(request.sourceAddress, accountA.address);
+        return {
+          message: { signature: "signature" },
+          connectionInfo: {},
+        };
+      },
+      notifySuccess: async () => undefined,
+      getWalletInfo: async () => ({}),
+    };
+
+    const response = await requestWalletSignature(
+      client,
+      {
+        payload: "050100",
+        sourceAddress: accountA.address,
+      },
+      (activeAccount) => {
+        assertWalletOperation({
+          session: {
+            revision: 1,
+            address: accountA.address,
+          },
+          currentRevision: 1,
+          account: activeAccount,
+          expectedNetwork: "shadownet",
+        });
+      },
+    );
+
+    assert.equal(response.signature, "signature");
+    assert.equal(sends, dispatchKind === "transport" ? 1 : 0);
+    assert.equal(posts, dispatchKind === "broadcast" ? 1 : 0);
+  });
+}

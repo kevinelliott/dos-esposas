@@ -70,6 +70,63 @@ async function checkKitchenAction(page, recipeName, action) {
   );
 }
 
+async function checkKitchenOrderRail(page) {
+  const rail = page.locator(".kitchen-order-rail");
+  const readiness = rail.getByText("Readiness");
+  const custody = rail.getByText("Custody");
+  const primaryAction = rail.locator(".button--primary");
+  await rail.waitFor();
+  await readiness.waitFor();
+  await custody.waitFor();
+
+  const actionBox = await primaryAction.boundingBox();
+  if (
+    !actionBox ||
+    actionBox.y < 0 ||
+    actionBox.y + actionBox.height > (page.viewportSize()?.height ?? 0)
+  ) {
+    throw new Error("desktop kitchen primary action is outside the first viewport");
+  }
+}
+
+async function checkActivityKeyboard(page) {
+  const trigger = page.getByRole("button", { name: /Operation activity/ });
+  await trigger.click();
+  const close = page.getByRole("button", {
+    name: "Close operation activity",
+  });
+  await close.waitFor();
+  if (!(await close.evaluate((element) => element === document.activeElement))) {
+    throw new Error("activity panel did not move focus to its close control");
+  }
+  await page.keyboard.press("Escape");
+  if (!(await trigger.evaluate((element) => element === document.activeElement))) {
+    throw new Error("activity panel did not restore trigger focus after Escape");
+  }
+}
+
+async function checkMinimumTargets(page, selector, name) {
+  const undersized = await page.locator(selector).evaluateAll((elements) =>
+    elements
+      .filter((element) => {
+        const style = window.getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        return (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          (box.width < 44 || box.height < 44)
+        );
+      })
+      .map((element) => {
+        const box = element.getBoundingClientRect();
+        return `${element.tagName.toLowerCase()} ${element.textContent?.trim() ?? ""} (${Math.round(box.width)}x${Math.round(box.height)})`;
+      }),
+  );
+  if (undersized.length > 0) {
+    throw new Error(`${name} has undersized targets: ${undersized.join(", ")}`);
+  }
+}
+
 function observe(page) {
   page.on("console", (message) => {
     if (
@@ -117,7 +174,7 @@ try {
 
   await desktop.goto(`${baseUrl}/menu`);
   await settle(desktop);
-  await desktop.getByRole("tab", { name: "Drinks" }).click();
+  await desktop.getByRole("button", { name: "Drinks" }).click();
   await desktop.getByPlaceholder("Search drinks").fill("margarita");
   await desktop
     .getByRole("heading", { name: "Premium Margarita" })
@@ -184,6 +241,15 @@ try {
 
   await desktop.goto(`${baseUrl}/kitchen`);
   await desktop.getByRole("heading", { name: "Pixel kitchen" }).waitFor();
+  await settle(desktop);
+  await checkKitchenOrderRail(desktop);
+  const currentKitchenLink = desktop.locator(
+    '.site-header__nav a[href="/kitchen"][aria-current="page"]',
+  );
+  if ((await currentKitchenLink.count()) !== 1) {
+    throw new Error("desktop kitchen navigation does not expose aria-current");
+  }
+  await checkActivityKeyboard(desktop);
   await checkKitchenAction(desktop, "Table Guacamole", "Blend");
   await checkKitchenAction(desktop, "Fresh Tortilla Chips", "Combine");
   await checkKitchenAction(desktop, "Loaded Burrito", "Cook");
@@ -283,6 +349,17 @@ try {
   await mobile
     .getByRole("navigation", { name: "Mobile navigation" })
     .waitFor();
+  if (
+    (await mobile.locator('.mobile-game-bar a[aria-current="page"]').count()) !==
+    1
+  ) {
+    throw new Error("mobile game bar does not expose one current page");
+  }
+  await checkMinimumTargets(
+    mobile,
+    ".kitchen-order-rail button, .recipe-browser__head button, .recipe-browser__head select, .activity-center__trigger, .mobile-nav a, .mobile-game-bar a",
+    "mobile kitchen",
+  );
   await settle(mobile);
   await checkPage(mobile, "mobile kitchen");
   await mobile.screenshot({
@@ -320,6 +397,35 @@ try {
       fullPage: true,
     });
   }
+
+  const reducedMotion = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
+  });
+  observe(reducedMotion);
+  await reducedMotion.goto(`${baseUrl}/kitchen`);
+  await reducedMotion.getByRole("heading", { name: "Pixel kitchen" }).waitFor();
+  await reducedMotion
+    .getByRole("button", { name: "Recheck ingredients" })
+    .click();
+  const reducedStatus = reducedMotion.locator(
+    '.kitchen-operation__status[data-phase="preview"]',
+  );
+  await reducedStatus.waitFor();
+  const reducedAnimations = await reducedMotion
+    .locator(".kitchen-action-scene")
+    .evaluate(
+      (scene) =>
+        scene
+          .getAnimations({ subtree: true })
+          .filter((animation) => animation.playState === "running").length,
+    );
+  if (reducedAnimations !== 0) {
+    throw new Error(
+      `reduced-motion kitchen still has ${reducedAnimations} running animations`,
+    );
+  }
+  await reducedMotion.close();
 
   if (errors.length > 0) {
     throw new Error(`Browser console errors:\n${[...new Set(errors)].join("\n")}`);

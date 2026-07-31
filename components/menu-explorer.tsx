@@ -50,15 +50,14 @@ export function MenuExplorer() {
   return (
     <div className="menu-explorer">
       <div className="menu-explorer__toolbar">
-        <div className="menu-tabs" role="tablist" aria-label="Catalog categories">
+        <div className="menu-tabs" aria-label="Catalog categories">
           {catalogCategories.map((item) => {
             const Icon = categoryIcons[item] ?? Utensils;
             return (
               <button
                 type="button"
                 key={item}
-                role="tab"
-                aria-selected={category === item}
+                aria-pressed={category === item}
                 className={category === item ? "is-active" : undefined}
                 onClick={() => setCategory(item)}
               >

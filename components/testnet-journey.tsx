@@ -48,22 +48,10 @@ export function TestnetJourney() {
       href: "/#shadownet-lab",
     },
     {
-      id: "purchase",
-      label: "Buy ingredient",
-      done: milestones.includes("purchase"),
-      href: "/market",
-    },
-    {
       id: "craft",
       label: "Cook dish",
       done: milestones.includes("craft"),
       href: "/kitchen",
-    },
-    {
-      id: "offer",
-      label: "Sign offer",
-      done: milestones.includes("offer"),
-      href: "/trades",
     },
     {
       id: "receipt",
@@ -129,14 +117,24 @@ export function TestnetJourney() {
         </button>
       </div>
       {!collapsed && (
-        <ol className="testnet-journey__steps">
-          {steps.map((step) => (
-            <li data-done={step.done} key={step.id}>
-              {step.done ? <Check size={14} /> : <Circle size={14} />}
-              {step.label}
-            </li>
-          ))}
-        </ol>
+        <>
+          <ol className="testnet-journey__steps">
+            {steps.map((step) => (
+              <li data-done={step.done} key={step.id}>
+                {step.done ? <Check size={14} /> : <Circle size={14} />}
+                {step.label}
+              </li>
+            ))}
+          </ol>
+          <p className="testnet-journey__truth">
+            Non-scarce test assets: checkout is intentionally unavailable.
+            <Link href="/trades">
+              {milestones.includes("offer")
+                ? " Offer signed."
+                : " Optional: sign an offer."}
+            </Link>
+          </p>
+        </>
       )}
     </section>
   );

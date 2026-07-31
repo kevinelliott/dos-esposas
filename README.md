@@ -101,11 +101,17 @@ operation when necessary, and simulates the origination with bounded gas and
 storage limits before injecting them. It originates the legacy rehearsal FA2
 first, inserts that address into the replacement asset storage, and then
 originates the replacement FA2. Confirmation uses direct chain-state polling so
-deployment can recover from public RPC lag. It writes only public contract and
-account addresses to the git-ignored `.env.shadownet.local`; it does not save
-the private key. After origination, it applies all 57 replacement descriptions
-in eight smaller operations so the deployment remains below Tezos'
-operation-size limit.
+deployment can recover from public RPC lag. Before writing app configuration,
+the deployer reads the TzKT-indexed origination snapshot and creates
+`contracts/testnet/build/deployment-manifest.json`. This v2 attestation binds the
+chain ID, origination operation and address, administrator, complete initial
+ledger and supply, token metadata, and the immutable economic policy. Deployment
+stops if any token supply differs from the sum of its initial ledger balances or
+if the indexed snapshot differs from the compiled storage. It then writes only
+public contract and account addresses and the reviewed digests to the
+git-ignored `.env.shadownet.local`; it does not save the private key. After
+origination, it applies all 57 replacement descriptions in eight smaller
+operations so the deployment remains below Tezos' operation-size limit.
 
 ### 3. Run and test
 
@@ -143,8 +149,11 @@ The compile command refreshes the checked-in artifacts in
 `storage.json` for the replacement FA2, plus `legacy-contract.json` and
 `legacy-storage.json` for the rehearsal collection. It also writes
 `policy-manifest.json`, whose build-pinned digest covers every token unit scale,
-recipe effect, and legacy mapping. The deployment command waits for TzKT and
-writes both the indexed code hash and policy hash to `.env.shadownet.local`.
+recipe effect, and legacy mapping. Recompiling invalidates any existing
+deployment manifest because that deployment-specific attestation must be
+regenerated from a new indexed origination. The deployment command waits for
+TzKT and writes the indexed code hash, portable policy hash, and
+deployment-specific manifest hash to `.env.shadownet.local`.
 
 The exact burn, reserve, and random-drop policy is documented in
 [`docs/kitchen-economics.md`](docs/kitchen-economics.md). The drop calculation

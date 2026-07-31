@@ -1,8 +1,10 @@
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
@@ -117,7 +119,14 @@ writeFileSync(
   resolve(buildDirectory, "policy-manifest.json"),
   `${JSON.stringify(policyManifest, null, 2)}\n`,
 );
+const deploymentManifestPath = resolve(
+  buildDirectory,
+  "deployment-manifest.json",
+);
+if (existsSync(deploymentManifestPath)) {
+  unlinkSync(deploymentManifestPath);
+}
 
 console.log(
-  `Updated replacement, legacy-mock, and policy manifest artifacts (${policyManifest.sha256}).`,
+  `Updated replacement, legacy-mock, and policy manifest artifacts (${policyManifest.sha256}); any deployment manifest was invalidated.`,
 );
