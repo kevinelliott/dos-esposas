@@ -5354,13 +5354,17 @@ input:focus-visible {
   text-decoration: underline;
 }
 
-.asset-ledger__unavailable {
-  min-height: 110px;
-  padding: 24px;
-  margin: 0;
-  border-top: var(--line);
+.asset-ledger__placeholder dd,
+.asset-ledger__source--placeholder span {
   color: var(--muted);
-  font-size: 13px;
+}
+
+.asset-ledger__source-placeholder {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  font-weight: 900;
+  text-decoration: underline;
 }
 
 .detail-grid {

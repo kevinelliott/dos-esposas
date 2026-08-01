@@ -167,6 +167,37 @@ async function checkAssetLedger(page, network, name) {
   }
 }
 
+async function checkAssetLoadingStability(browser, width, height, network) {
+  const page = await browser.newPage({ viewport: { width, height } });
+  observe(page);
+  await page.route("**/api/asset-metrics", async (route) => {
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 1_800));
+    await route.fulfill({ response });
+  });
+  await page.goto(`${baseUrl}/items/avocado`);
+  const ledger = page.locator(".asset-ledger");
+  await ledger.waitFor();
+  const loadingHeight = (await ledger.boundingBox())?.height ?? 0;
+  if ((await ledger.getAttribute("aria-busy")) !== "true") {
+    throw new Error(`${width}px ${network} asset ledger skipped its loading state`);
+  }
+  await page.waitForFunction(
+    () => document.querySelector(".asset-ledger")?.getAttribute("aria-busy") === "false",
+    undefined,
+    { timeout: 10_000 },
+  );
+  const settledHeight = (await ledger.boundingBox())?.height ?? 0;
+  const heightDelta = Math.abs(settledHeight - loadingHeight);
+  if (heightDelta > 80) {
+    throw new Error(
+      `${width}px ${network} asset ledger shifted ${Math.round(heightDelta)}px while loading evidence`,
+    );
+  }
+  await checkPage(page, `${width}px delayed asset ledger`);
+  await page.close();
+}
+
 function observe(page) {
   page.on("console", (message) => {
     if (
@@ -483,6 +514,9 @@ try {
   await checkAssetLedger(narrowMobile, network, "320px item detail");
   await checkPage(narrowMobile, "320px item detail metrics");
   await narrowMobile.close();
+
+  await checkAssetLoadingStability(browser, 390, 844, network);
+  await checkAssetLoadingStability(browser, 320, 700, network);
 
   const reducedMotion = await browser.newPage({
     viewport: { width: 390, height: 844 },

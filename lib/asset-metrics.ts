@@ -200,7 +200,8 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
   if (tokenTime - headTime > MAX_FUTURE_SKEW_MS) {
     throw new Error("Token activity time is materially ahead of the indexer head.");
   }
-  if (input.systemBalanceLastTime) {
+  let systemBalanceLastTime: string | null = null;
+  if (input.systemBalanceLastTime !== undefined) {
     const systemBalanceTime = parseRfc3339(
       input.systemBalanceLastTime,
       "System balance time",
@@ -208,8 +209,10 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
     if (systemBalanceTime - headTime > MAX_FUTURE_SKEW_MS) {
       throw new Error("System balance time is materially ahead of the indexer head.");
     }
+    systemBalanceLastTime = input.systemBalanceLastTime;
   }
-  if (input.dumpsterBalanceLastTime) {
+  let dumpsterBalanceLastTime: string | null = null;
+  if (input.dumpsterBalanceLastTime !== undefined) {
     const dumpsterBalanceTime = parseRfc3339(
       input.dumpsterBalanceLastTime,
       "Dumpster balance time",
@@ -217,6 +220,7 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
     if (dumpsterBalanceTime - headTime > MAX_FUTURE_SKEW_MS) {
       throw new Error("Dumpster balance time is materially ahead of the indexer head.");
     }
+    dumpsterBalanceLastTime = input.dumpsterBalanceLastTime;
   }
   const classifiedPositiveHolders =
     (systemHeld > 0n ? 1 : 0) + (dumpsterHeld > 0n ? 1 : 0);
@@ -268,9 +272,9 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
       tokenLastLevel: tokenLevel,
       tokenLastTime: input.tokenLastTime,
       roleBalanceLastTimes: {
-        [input.systemWallet]: input.systemBalanceLastTime ?? null,
+        [input.systemWallet]: systemBalanceLastTime,
         ...(input.dumpsterWallet
-          ? { [input.dumpsterWallet]: input.dumpsterBalanceLastTime ?? null }
+          ? { [input.dumpsterWallet]: dumpsterBalanceLastTime }
           : {}),
       },
       atomicSnapshot: false,

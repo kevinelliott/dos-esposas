@@ -71,6 +71,10 @@ test("fails closed on supply, custody, role, holder, or indexer drift", () => {
     { ...input, tokenLastTime: "2026-08-01T01:02:01Z" },
     { ...input, systemBalanceLastTime: "2026-08-01T01:02:01Z" },
     { ...input, dumpsterBalanceLastTime: "2026-08-01T01:02:01Z" },
+    { ...input, systemBalanceLastTime: "" },
+    { ...input, dumpsterBalanceLastTime: "" },
+    { ...input, systemBalanceLastTime: 0 as unknown as string },
+    { ...input, dumpsterBalanceLastTime: false as unknown as string },
     { ...input, dumpsterWallet: undefined },
     { ...input, dumpsterHeldRaw: undefined },
   ];
