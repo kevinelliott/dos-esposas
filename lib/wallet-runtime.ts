@@ -39,7 +39,9 @@ export class WalletRuntime<Wallet> {
 
   async get() {
     if (this.wallet) return this.wallet;
-    if (this.creation) return this.creation.promise;
+    if (this.creation?.generation === this.generation) {
+      return this.creation.promise;
+    }
 
     const generation = this.generation;
     const promise = this.createWallet({

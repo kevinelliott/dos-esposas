@@ -65,6 +65,48 @@ test("disconnect retires a deferred connection and disposes its wallet", async (
   assert.equal(factoryIsCurrent?.(), false);
 });
 
+test("reconnect during retired creation starts a new-generation wallet", async () => {
+  const creations = [
+    deferred<{ id: number }>(),
+    deferred<{ id: number }>(),
+  ];
+  const disposed: number[] = [];
+  const factoryCurrent: Array<() => boolean> = [];
+  const connected: number[] = [];
+  let creationIndex = 0;
+  const runtime = new WalletRuntime(
+    async (context) => {
+      factoryCurrent.push(context.isCurrent);
+      return creations[creationIndex++].promise;
+    },
+    async (wallet) => {
+      disposed.push(wallet.id);
+    },
+  );
+
+  const connectRetired = runtime.connect(async (wallet) => {
+    connected.push(wallet.id);
+  });
+  const disconnect = runtime.disconnect();
+  const reconnect = runtime.connect(async (wallet) => {
+    connected.push(wallet.id);
+  });
+
+  assert.equal(creationIndex, 2);
+  creations[0].resolve({ id: 1 });
+  creations[1].resolve({ id: 2 });
+
+  await assert.rejects(connectRetired, /connection changed/);
+  await disconnect;
+  await reconnect;
+
+  assert.deepEqual(disposed, [1]);
+  assert.deepEqual(connected, [2]);
+  assert.equal(factoryCurrent[0](), false);
+  assert.equal(factoryCurrent[1](), true);
+  assert.equal((await runtime.get()).id, 2);
+});
+
 test("disconnect disposes the active wallet and a later connect gets a new generation", async () => {
   let nextId = 0;
   const disposed: number[] = [];

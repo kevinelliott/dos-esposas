@@ -15,6 +15,7 @@ import {
   milestonesForAccount,
   parseActivityLog,
   parseJourneyProgress,
+  recordInspectedCraftReceipt,
   serializeActivityLog,
   serializeJourneyProgress,
   type ActivityKind,
@@ -44,6 +45,7 @@ type ActivityContextValue = {
   submitActivity: (id: string, hash?: string) => void;
   failActivity: (id: string, error: string) => void;
   markMilestone: (milestone: JourneyMilestone) => void;
+  inspectReceipt: (activity: WalletActivity) => void;
   clearSettled: () => void;
   removeActivity: (id: string) => void;
 };
@@ -145,16 +147,31 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
   );
 
   const markMilestone = useCallback((milestone: JourneyMilestone) => {
+    if (milestone === "receipt") return;
     const account = activeAccountRef.current;
     if (!account) return;
     setProgress((current) => {
-      const accountMilestones = current[account] ?? [];
+      const accountProgress = current[account] ?? { milestones: [] };
+      const accountMilestones = accountProgress.milestones;
       if (accountMilestones.includes(milestone)) return current;
       const next = {
         ...current,
-        [account]: [...accountMilestones, milestone],
+        [account]: {
+          ...accountProgress,
+          milestones: [...accountMilestones, milestone],
+        },
       };
       persistProgress(next);
+      return next;
+    });
+  }, []);
+
+  const inspectReceipt = useCallback((activity: WalletActivity) => {
+    const account = activeAccountRef.current;
+    if (!account) return;
+    setProgress((current) => {
+      const next = recordInspectedCraftReceipt(current, account, activity);
+      if (next !== current) persistProgress(next);
       return next;
     });
   }, []);
@@ -355,6 +372,7 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       submitActivity,
       failActivity,
       markMilestone,
+      inspectReceipt,
       clearSettled,
       removeActivity,
     }),
@@ -363,6 +381,7 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       clearSettled,
       failActivity,
       hydrated,
+      inspectReceipt,
       markMilestone,
       milestones,
       removeActivity,

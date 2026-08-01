@@ -3,9 +3,12 @@ import { evaluateContractReadiness } from "@/lib/contract-readiness";
 import {
   createContractPolicy,
   hashContractPolicy,
+  type ContractPolicy,
   type PolicyEntry,
 } from "@/lib/contract-policy";
+import { hashDeploymentManifest } from "@/lib/deployment-manifest";
 import { networkConfig } from "@/lib/network";
+import { readTzktDeploymentManifest } from "@/lib/tzkt-deployment";
 import policyManifest from "@/contracts/testnet/build/policy-manifest.json";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +96,14 @@ export async function GET() {
         expectedLegacyContract: networkConfig.legacyContract,
       }),
     );
+    const { manifest } = await readTzktDeploymentManifest({
+      apiUrl: networkConfig.tzktApiUrl,
+      chainId: networkConfig.chainId,
+      contractAddress: contract,
+      expectedLegacyContract: networkConfig.legacyContract,
+      expectedPolicy: policyManifest.policy as ContractPolicy,
+    });
+    const actualDeploymentManifestHash = hashDeploymentManifest(manifest);
 
     return NextResponse.json(
       evaluateContractReadiness({
@@ -101,6 +112,9 @@ export async function GET() {
         expectedPolicyHash: networkConfig.contractPolicyHash,
         pinnedPolicyHash: policyManifest.sha256,
         actualPolicyHash,
+        expectedDeploymentManifestHash:
+          networkConfig.deploymentManifestHash,
+        actualDeploymentManifestHash,
         contractRecord: await contractResponse.json(),
         storage,
         entrypoints: await entrypointsResponse.json(),

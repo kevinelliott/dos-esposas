@@ -357,7 +357,7 @@ try {
   }
   await checkMinimumTargets(
     mobile,
-    ".kitchen-order-rail button, .recipe-browser__head button, .recipe-browser__head select, .activity-center__trigger, .mobile-nav a, .mobile-game-bar a",
+    ".kitchen-order-rail button, .recipe-browser__head button, .recipe-browser__head select, .activity-center__trigger, .mobile-nav a, .mobile-game-bar a, .testnet-journey a, .testnet-journey button",
     "mobile kitchen",
   );
   await settle(mobile);
@@ -397,6 +397,26 @@ try {
       fullPage: true,
     });
   }
+
+  const narrowMobile = await browser.newPage({
+    viewport: { width: 320, height: 568 },
+  });
+  observe(narrowMobile);
+  await narrowMobile.goto(`${baseUrl}/kitchen`);
+  await narrowMobile
+    .getByRole("heading", { name: "Pixel kitchen" })
+    .waitFor();
+  await narrowMobile.getByRole("button", { name: "Open menu" }).click();
+  await narrowMobile
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .waitFor();
+  await checkMinimumTargets(
+    narrowMobile,
+    ".kitchen-order-rail button, .recipe-browser__head button, .recipe-browser__head select, .activity-center__trigger, .mobile-nav a, .mobile-game-bar a, .testnet-journey a, .testnet-journey button",
+    "320px mobile kitchen",
+  );
+  await checkPage(narrowMobile, "320px mobile kitchen");
+  await narrowMobile.close();
 
   const reducedMotion = await browser.newPage({
     viewport: { width: 390, height: 844 },

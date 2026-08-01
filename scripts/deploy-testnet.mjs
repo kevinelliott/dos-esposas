@@ -4,14 +4,13 @@ import { InMemorySigner } from "@taquito/signer";
 import { TezosToolkit } from "@taquito/taquito";
 import { Schema } from "@taquito/michelson-encoder";
 import {
-  assertDeploymentIdentity,
   createDeploymentManifest,
   hashDeploymentManifest,
 } from "../lib/deployment-manifest.ts";
 import {
-  createContractPolicy,
   hashContractPolicy,
 } from "../lib/contract-policy.ts";
+import { readTzktDeploymentManifest } from "../lib/tzkt-deployment.ts";
 import { syncTestnetDescriptions } from "./lib/sync-testnet-descriptions.mjs";
 
 const RPC_URL =
@@ -166,118 +165,6 @@ function mapEntries(map) {
   return [...map.entries()].map(([key, value]) => ({ key, value }));
 }
 
-async function fetchJson(url, label) {
-  const response = await fetch(url, {
-    headers: { accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(`TzKT ${label} lookup failed (${response.status}).`);
-  }
-  return response.json();
-}
-
-async function fetchHistoricalBigMapEntries(bigMapId, level) {
-  if (!/^\d+$/.test(String(bigMapId)) || !Number.isSafeInteger(level)) {
-    throw new Error("Indexed origination storage references invalid history.");
-  }
-  const entries = [];
-  const limit = 1_000;
-  for (let offset = 0; ; offset += limit) {
-    const url = new URL(
-      `/v1/bigmaps/${bigMapId}/historical_keys/${level}`,
-      TZKT_API_URL,
-    );
-    url.searchParams.set("limit", String(limit));
-    url.searchParams.set("offset", String(offset));
-    url.searchParams.set("select", "key,value");
-    const page = await fetchJson(url, "origination big-map history");
-    if (!Array.isArray(page)) {
-      throw new Error("TzKT returned malformed origination big-map history.");
-    }
-    entries.push(...page);
-    if (page.length < limit) return entries;
-  }
-}
-
-async function readIndexedOrigination({
-  contractAddress,
-  operationHash,
-  expectedChainId,
-  expectedPolicy,
-  expectedLegacyContract,
-}) {
-  const operationPayload = await fetchJson(
-    `${TZKT_API_URL}/v1/operations/originations/${operationHash}`,
-    "origination",
-  );
-  const operation = Array.isArray(operationPayload)
-    ? operationPayload.find((candidate) => candidate?.hash === operationHash)
-    : operationPayload;
-  const indexedAddress =
-    operation?.originatedContract?.address ??
-    operation?.originatedContract ??
-    operation?.contractAddress;
-  if (
-    !operation ||
-    operation.hash !== operationHash ||
-    indexedAddress !== contractAddress ||
-    !Number.isSafeInteger(operation.level)
-  ) {
-    throw new Error(
-      "TzKT origination identity does not match the submitted deployment.",
-    );
-  }
-
-  const storageUrl = new URL(
-    `/v1/contracts/${contractAddress}/storage`,
-    TZKT_API_URL,
-  );
-  storageUrl.searchParams.set("level", String(operation.level));
-  const storage = await fetchJson(storageUrl, "origination storage");
-  const [ledger, supply, tokenMetadata, unitScales, recipes, legacyAssets] =
-    await Promise.all(
-      [
-        "ledger",
-        "supply",
-        "token_metadata",
-        "unit_scales",
-        "recipes",
-        "legacy_assets",
-      ].map((field) =>
-        fetchHistoricalBigMapEntries(storage[field], operation.level),
-      ),
-    );
-  const actualPolicy = createContractPolicy({
-    storage,
-    unitScales,
-    recipes,
-    legacyAssets,
-    expectedLegacyContract,
-  });
-  if (hashContractPolicy(actualPolicy) !== hashContractPolicy(expectedPolicy)) {
-    throw new Error(
-      "Indexed origination economics do not match the compiled policy.",
-    );
-  }
-
-  const manifest = createDeploymentManifest({
-    chainId: expectedChainId,
-    originationOperation: operation.hash,
-    contractAddress: indexedAddress,
-    administrator: storage.administrator,
-    ledger,
-    supply,
-    tokenMetadata,
-    policy: actualPolicy,
-  });
-  assertDeploymentIdentity(manifest, {
-    chainId: expectedChainId,
-    originationOperation: operationHash,
-    contractAddress,
-  });
-  return manifest;
-}
-
 const signer = await InMemorySigner.fromSecretKey(secretKey);
 const address = await signer.publicKeyHash();
 const tezos = new TezosToolkit(RPC_URL);
@@ -425,10 +312,11 @@ const expectedDeploymentManifest = createDeploymentManifest({
   tokenMetadata: mapEntries(decodedExpectedStorage.token_metadata),
   policy: policyManifest.policy,
 });
-const deploymentManifest = await readIndexedOrigination({
+const { manifest: deploymentManifest } = await readTzktDeploymentManifest({
+  apiUrl: TZKT_API_URL,
+  chainId,
   contractAddress,
   operationHash: replacementOrigination.operationHash,
-  expectedChainId: chainId,
   expectedPolicy: policyManifest.policy,
   expectedLegacyContract: legacyContractAddress,
 });
@@ -469,13 +357,6 @@ const env = [
   "",
 ].join("\n");
 
-writeFileSync(resolve(".env.shadownet.local"), env, {
-  encoding: "utf8",
-  mode: 0o600,
-});
-
-console.log("Wrote .env.shadownet.local.");
-
 console.log("Synchronizing all 57 replacement asset descriptions...");
 const deployedContract = await tezos.contract.at(contractAddress);
 await syncTestnetDescriptions({
@@ -487,4 +368,11 @@ await syncTestnetDescriptions({
     console.log(`Description batch ${range} confirmed.`),
 });
 
-console.log("Shadownet metadata synchronized. Start with: npm run dev:testnet");
+writeFileSync(resolve(".env.shadownet.local"), env, {
+  encoding: "utf8",
+  mode: 0o600,
+});
+
+console.log(
+  "Shadownet metadata synchronized and .env.shadownet.local written. Start with: npm run dev:testnet",
+);

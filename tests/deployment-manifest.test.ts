@@ -68,6 +68,24 @@ test("canonicalizes and hashes the complete origination snapshot", () => {
   assert.match(hashDeploymentManifest(manifest), /^[a-f0-9]{64}$/);
 });
 
+test("accepts TzKT address/nat ledger pairs independent of field order", () => {
+  const left = createDeploymentManifest({
+    ...input,
+    ledger: [
+      { key: { address: "tz1-reviewed", nat: 0 }, value: 5 },
+      { key: { nat: 1, address: "tz1-reviewed" }, value: 7 },
+    ],
+  });
+  const right = createDeploymentManifest({
+    ...input,
+    ledger: [
+      { key: { nat: 1, address: "tz1-reviewed" }, value: 7 },
+      { key: { nat: 0, address: "tz1-reviewed" }, value: 5 },
+    ],
+  });
+  assert.equal(hashDeploymentManifest(left), hashDeploymentManifest(right));
+});
+
 test("administrator, ledger, supply, metadata, and policy drift change the hash", () => {
   const reviewed = hashDeploymentManifest(createDeploymentManifest(input));
   const variants = [
@@ -123,6 +141,29 @@ test("rejects incomplete token metadata", () => {
         tokenMetadata: input.tokenMetadata.slice(0, 1),
       }),
     /does not cover every initial token/,
+  );
+});
+
+test("rejects malformed and duplicate TzKT ledger keys", () => {
+  assert.throws(
+    () =>
+      createDeploymentManifest({
+        ...input,
+        ledger: [{ key: { address: "tz1-reviewed" }, value: 5 }],
+      }),
+    /token ID is not a natural number/,
+  );
+  assert.throws(
+    () =>
+      createDeploymentManifest({
+        ...input,
+        ledger: [
+          { key: { address: "tz1-reviewed", nat: 0 }, value: 2 },
+          { key: { nat: 0, address: "tz1-reviewed" }, value: 3 },
+          { key: { address: "tz1-reviewed", nat: 1 }, value: 7 },
+        ],
+      }),
+    /duplicate key/,
   );
 });
 

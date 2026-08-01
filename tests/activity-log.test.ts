@@ -5,6 +5,7 @@ import {
   milestonesForAccount,
   parseActivityLog,
   parseJourneyProgress,
+  recordInspectedCraftReceipt,
   serializeActivityLog,
   serializeJourneyProgress,
   type WalletActivity,
@@ -71,8 +72,10 @@ test("pre-hash work becomes an explicit interruption after hydration", () => {
 test("journey progress remains isolated by wallet account", () => {
   const restored = parseJourneyProgress(
     serializeJourneyProgress({
-      [accountA]: ["starter", "craft", "craft"],
-      [accountB]: ["offer"],
+      [accountA]: {
+        milestones: ["starter", "craft", "craft"],
+      },
+      [accountB]: { milestones: ["offer"] },
     }),
   );
 
@@ -82,4 +85,68 @@ test("journey progress remains isolated by wallet account", () => {
   ]);
   assert.deepEqual(milestonesForAccount(restored, accountB), ["offer"]);
   assert.deepEqual(milestonesForAccount(restored, ""), []);
+});
+
+test("receipt progress requires inspecting a confirmed craft", () => {
+  const initial = parseJourneyProgress(
+    serializeJourneyProgress({
+      [accountA]: { milestones: ["starter"] },
+    }),
+  );
+  const claim = activity({
+    id: "claim",
+    kind: "claim",
+    status: "confirmed",
+  });
+  const submittedCraft = activity({ id: "submitted" });
+  const failedCraft = activity({ id: "failed", status: "failed" });
+  const interruptedCraft = activity({
+    id: "interrupted",
+    status: "interrupted",
+  });
+
+  for (const candidate of [
+    claim,
+    submittedCraft,
+    failedCraft,
+    interruptedCraft,
+  ]) {
+    assert.strictEqual(
+      recordInspectedCraftReceipt(initial, accountA, candidate),
+      initial,
+    );
+  }
+
+  const confirmedCraft = activity({
+    id: "confirmed-craft",
+    status: "confirmed",
+  });
+  const completed = recordInspectedCraftReceipt(
+    initial,
+    accountA,
+    confirmedCraft,
+  );
+  assert.deepEqual(milestonesForAccount(completed, accountA), [
+    "starter",
+    "receipt",
+  ]);
+  assert.deepEqual(completed[accountA].inspectedReceipt, {
+    activityId: "confirmed-craft",
+    kind: "craft",
+  });
+});
+
+test("legacy context-free receipt milestones fail closed", () => {
+  const restored = parseJourneyProgress(
+    JSON.stringify({
+      version: 2,
+      accounts: {
+        [accountA]: ["starter", "craft", "receipt"],
+      },
+    }),
+  );
+  assert.deepEqual(milestonesForAccount(restored, accountA), [
+    "starter",
+    "craft",
+  ]);
 });

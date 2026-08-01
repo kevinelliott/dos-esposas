@@ -110,7 +110,7 @@ function ledgerKey(key: unknown) {
     const row = key as Record<string, unknown>;
     return {
       owner: row.owner ?? row.address ?? row["0"],
-      tokenId: row.tokenId ?? row.token_id ?? row["1"],
+      tokenId: row.tokenId ?? row.token_id ?? row.nat ?? row["1"],
     };
   }
   throw new Error("Deployment manifest ledger key is malformed.");

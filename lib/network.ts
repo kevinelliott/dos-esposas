@@ -11,6 +11,7 @@ const mainnet = {
   id: "mainnet" as const,
   label: "Mainnet",
   isTestnet: false,
+  chainId: "",
   rpcUrl:
     process.env.NEXT_PUBLIC_TEZOS_RPC_URL ?? "https://mainnet.api.tez.ie",
   tzktApiUrl: "https://api.tzkt.io",
@@ -39,6 +40,7 @@ const shadownet = {
   id: "shadownet" as const,
   label: "Shadownet",
   isTestnet: true,
+  chainId: "NetXsqzbfFenSTS",
   rpcUrl:
     process.env.NEXT_PUBLIC_TEZOS_RPC_URL ??
     "https://rpc.shadownet.teztnets.com",

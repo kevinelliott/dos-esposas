@@ -4,6 +4,7 @@ export type ContractReadiness = {
   reason: string;
   codeHash?: string;
   policyHash?: string;
+  deploymentManifestHash?: string;
 };
 
 type ContractRecord = {
@@ -33,6 +34,8 @@ export function evaluateContractReadiness({
   expectedPolicyHash,
   pinnedPolicyHash,
   actualPolicyHash,
+  expectedDeploymentManifestHash,
+  actualDeploymentManifestHash,
   contractRecord,
   storage,
   entrypoints,
@@ -42,6 +45,8 @@ export function evaluateContractReadiness({
   expectedPolicyHash: string;
   pinnedPolicyHash: string;
   actualPolicyHash: string;
+  expectedDeploymentManifestHash: string;
+  actualDeploymentManifestHash: string;
   contractRecord: ContractRecord;
   storage: unknown;
   entrypoints: unknown;
@@ -63,6 +68,15 @@ export function evaluateContractReadiness({
       contract,
       reason:
         "No build-pinned Shadownet economic policy hash is configured.",
+    };
+  }
+
+  if (!/^[a-f0-9]{64}$/.test(expectedDeploymentManifestHash)) {
+    return {
+      ready: false,
+      contract,
+      reason:
+        "No reviewed Shadownet deployment manifest hash is configured.",
     };
   }
 
@@ -123,12 +137,25 @@ export function evaluateContractReadiness({
     };
   }
 
+  if (actualDeploymentManifestHash !== expectedDeploymentManifestHash) {
+    return {
+      ready: false,
+      contract,
+      codeHash,
+      policyHash: actualPolicyHash,
+      deploymentManifestHash: actualDeploymentManifestHash,
+      reason:
+        "The deployed contract origination does not match the reviewed authority and initial supply manifest.",
+    };
+  }
+
   return {
     ready: true,
     contract,
     codeHash,
     policyHash: actualPolicyHash,
+    deploymentManifestHash: actualDeploymentManifestHash,
     reason:
-      "The deployed contract matches the reviewed code and economic policy.",
+      "The deployed contract matches the reviewed code, economic policy, and origination manifest.",
   };
 }

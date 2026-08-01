@@ -17,6 +17,7 @@ const requiredEntrypoints = [
   "set_metadata_manager",
 ].map((name) => ({ name }));
 const policyHash = "a".repeat(64);
+const deploymentManifestHash = "c".repeat(64);
 
 function readiness(overrides = {}) {
   return evaluateContractReadiness({
@@ -25,6 +26,8 @@ function readiness(overrides = {}) {
     expectedPolicyHash: policyHash,
     pinnedPolicyHash: policyHash,
     actualPolicyHash: policyHash,
+    expectedDeploymentManifestHash: deploymentManifestHash,
+    actualDeploymentManifestHash: deploymentManifestHash,
     contractRecord: { address: "KT1-reviewed", codeHash: 1234 },
     storage: requiredStorage,
     entrypoints: requiredEntrypoints,
@@ -61,6 +64,17 @@ test("fails closed when policy configuration or deployed economics drift", () =>
   assert.match(
     readiness({ actualPolicyHash: "b".repeat(64) }).reason,
     /economics do not match/,
+  );
+});
+
+test("fails closed when deployment manifest configuration or origination drifts", () => {
+  assert.match(
+    readiness({ expectedDeploymentManifestHash: "" }).reason,
+    /manifest hash is configured/,
+  );
+  assert.match(
+    readiness({ actualDeploymentManifestHash: "d".repeat(64) }).reason,
+    /origination does not match/,
   );
 });
 

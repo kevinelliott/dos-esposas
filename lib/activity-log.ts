@@ -36,7 +36,15 @@ export type JourneyMilestone =
   | "offer"
   | "receipt";
 
-export type JourneyProgress = Record<string, JourneyMilestone[]>;
+export type JourneyAccountProgress = {
+  milestones: JourneyMilestone[];
+  inspectedReceipt?: {
+    activityId: string;
+    kind: "craft";
+  };
+};
+
+export type JourneyProgress = Record<string, JourneyAccountProgress>;
 
 export type ActivityLog = {
   version: typeof activityLogVersion;
@@ -188,16 +196,53 @@ export function parseJourneyProgress(value: string | null): JourneyProgress {
       return {};
     }
     const progress: JourneyProgress = {};
-    for (const [account, milestones] of Object.entries(payload.accounts)) {
-      if (!isWalletAccount(account) || !Array.isArray(milestones)) continue;
-      progress[account] = [
+    for (const [account, accountValue] of Object.entries(payload.accounts)) {
+      if (!isWalletAccount(account)) continue;
+      const legacyMilestones = Array.isArray(accountValue)
+        ? accountValue
+        : accountValue &&
+            typeof accountValue === "object" &&
+            Array.isArray(
+              (accountValue as { milestones?: unknown }).milestones,
+            )
+          ? (accountValue as { milestones: unknown[] }).milestones
+          : null;
+      if (!legacyMilestones) continue;
+      const receiptValue =
+        !Array.isArray(accountValue) &&
+        accountValue &&
+        typeof accountValue === "object"
+          ? (
+              accountValue as {
+                inspectedReceipt?: {
+                  activityId?: unknown;
+                  kind?: unknown;
+                };
+              }
+            ).inspectedReceipt
+          : undefined;
+      const inspectedReceipt =
+        receiptValue?.kind === "craft" &&
+        typeof receiptValue.activityId === "string" &&
+        boundedText(receiptValue.activityId, 100)
+          ? {
+              activityId: receiptValue.activityId,
+              kind: "craft" as const,
+            }
+          : undefined;
+      const milestones = [
         ...new Set(
-          milestones.filter(
+          legacyMilestones.filter(
             (milestone): milestone is JourneyMilestone =>
-              journeyMilestones.has(milestone as JourneyMilestone),
+              journeyMilestones.has(milestone as JourneyMilestone) &&
+              (milestone !== "receipt" || Boolean(inspectedReceipt)),
           ),
         ),
       ];
+      if (inspectedReceipt && !milestones.includes("receipt")) {
+        milestones.push("receipt");
+      }
+      progress[account] = { milestones, inspectedReceipt };
     }
     return progress;
   } catch {
@@ -216,5 +261,33 @@ export function milestonesForAccount(
   progress: JourneyProgress,
   account: string,
 ) {
-  return isWalletAccount(account) ? (progress[account] ?? []) : [];
+  return isWalletAccount(account)
+    ? (progress[account]?.milestones ?? [])
+    : [];
+}
+
+export function recordInspectedCraftReceipt(
+  progress: JourneyProgress,
+  account: string,
+  activity: WalletActivity,
+) {
+  if (
+    !isWalletAccount(account) ||
+    activity.account !== account ||
+    activity.kind !== "craft" ||
+    activity.status !== "confirmed"
+  ) {
+    return progress;
+  }
+  const current = progress[account] ?? { milestones: [] };
+  return {
+    ...progress,
+    [account]: {
+      milestones: [...new Set([...current.milestones, "receipt" as const])],
+      inspectedReceipt: {
+        activityId: activity.id,
+        kind: "craft" as const,
+      },
+    },
+  };
 }

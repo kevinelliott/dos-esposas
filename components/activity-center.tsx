@@ -34,7 +34,7 @@ export function ActivityCenter() {
   const {
     activities,
     clearSettled,
-    markMilestone,
+    inspectReceipt,
     removeActivity,
   } = useActivity();
   const [open, setOpen] = useState(false);
@@ -165,10 +165,11 @@ export function ActivityCenter() {
                           className="activity-center__inspect"
                           aria-expanded={inspectedId === activity.id}
                           onClick={() => {
+                            const revealing = inspectedId !== activity.id;
                             setInspectedId((current) =>
                               current === activity.id ? "" : activity.id,
                             );
-                            markMilestone("receipt");
+                            if (revealing) inspectReceipt(activity);
                           }}
                         >
                           {inspectedId === activity.id
