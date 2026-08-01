@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
+import { AssetSupplyLedger } from "@/components/asset-supply-ledger";
 import { ItemArt } from "@/components/item-art";
+import { useAssetMetrics } from "@/components/use-asset-metrics";
 import { useInventory } from "@/components/use-inventory";
 import { useWallet } from "@/components/wallet-provider";
 import {
@@ -31,6 +33,7 @@ export function ItemDetail({ item }: { item: CatalogItem }) {
   const { address, connect } = useWallet();
   const walletInventory = useInventory(address);
   const systemInventory = useInventory(SYSTEM_WALLET);
+  const assetMetrics = useAssetMetrics();
   const recipes = recipesForItem(item.slug);
   const walletBalance = walletInventory.balances.find(
     (balance) =>
@@ -40,6 +43,7 @@ export function ItemDetail({ item }: { item: CatalogItem }) {
     (balance) =>
       balance.contract === item.contract && balance.tokenId === item.tokenId,
   );
+  const metric = assetMetrics.byKey.get(`${item.contract}:${item.tokenId}`);
   const marketplace =
     process.env.NEXT_PUBLIC_MARKETPLACE_CONTRACT ||
     (networkConfig.isTestnet ? networkConfig.assetContract : "");
@@ -177,6 +181,13 @@ export function ItemDetail({ item }: { item: CatalogItem }) {
           </span>
         )}
       </nav>
+
+      <AssetSupplyLedger
+        item={item}
+        metric={metric}
+        response={assetMetrics.response}
+        loading={assetMetrics.loading}
+      />
 
       <section className="detail-grid">
         <article className="detail-panel">

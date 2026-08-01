@@ -127,6 +127,45 @@ async function checkMinimumTargets(page, selector, name) {
   }
 }
 
+async function checkAssetMetricCard(page, network, name) {
+  const strip = page.locator(".inventory-card__stock-strip").first();
+  await strip.waitFor();
+  if ((await strip.locator(":scope > span").count()) !== 3) {
+    throw new Error(`${name} does not expose three supply cells`);
+  }
+  const minimumFont = await strip.locator("small, b").evaluateAll((elements) =>
+    Math.min(...elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize))),
+  );
+  if (minimumFont < 11) {
+    throw new Error(`${name} supply text falls below 11px`);
+  }
+  if (network === "mainnet" && (await strip.innerText()).includes("—")) {
+    throw new Error(`${name} did not load sourced mainnet supply values`);
+  }
+}
+
+async function checkAssetLedger(page, network, name) {
+  const ledger = page.locator(".asset-ledger");
+  await ledger.waitFor();
+  if ((await ledger.locator(".asset-ledger__rail > div").count()) !== 4) {
+    throw new Error(`${name} does not expose four primary ledger cells`);
+  }
+  const actions = page.locator(".detail-actions");
+  const [actionBox, ledgerBox] = await Promise.all([
+    actions.boundingBox(),
+    ledger.boundingBox(),
+  ]);
+  if (!actionBox || !ledgerBox || actionBox.y >= ledgerBox.y) {
+    throw new Error(`${name} puts analytics before the primary action`);
+  }
+  if (network === "mainnet") {
+    await ledger.getByText("Best-effort current").waitFor();
+    await ledger.getByText("1,664.696297 AVO").waitFor();
+  } else {
+    await ledger.getByText("Not reported").first().waitFor();
+  }
+}
+
 function observe(page) {
   page.on("console", (message) => {
     if (
@@ -180,6 +219,7 @@ try {
     .getByRole("heading", { name: "Premium Margarita" })
     .waitFor();
   await settle(desktop);
+  await checkAssetMetricCard(desktop, network, "desktop catalog");
   await checkPage(desktop, "desktop catalog");
   await desktop.screenshot({
     path: "/private/tmp/dos-esposas-catalog.png",
@@ -324,13 +364,14 @@ try {
     fullPage: true,
   });
 
-  await desktop.goto(`${baseUrl}/items/guacamole`);
-  await desktop.getByRole("heading", { name: "Guacamole" }).waitFor();
+  await desktop.goto(`${baseUrl}/items/avocado`);
+  await desktop.getByRole("heading", { name: "Avocado" }).waitFor();
   await desktop.getByText("On-chain identity").waitFor();
   await settle(desktop);
+  await checkAssetLedger(desktop, network, "desktop item detail");
   await checkPage(desktop, "desktop item detail");
   await desktop.screenshot({
-    path: "/private/tmp/dos-esposas-guacamole.png",
+    path: "/private/tmp/dos-esposas-avocado.png",
     fullPage: true,
   });
 
@@ -387,6 +428,21 @@ try {
     fullPage: true,
   });
 
+  await mobile.goto(`${baseUrl}/menu`);
+  await settle(mobile);
+  await checkAssetMetricCard(mobile, network, "mobile catalog");
+  await checkPage(mobile, "mobile catalog metrics");
+
+  await mobile.goto(`${baseUrl}/items/avocado`);
+  await mobile.getByRole("heading", { name: "Avocado" }).waitFor();
+  await settle(mobile);
+  await checkAssetLedger(mobile, network, "mobile item detail");
+  await checkPage(mobile, "mobile item detail metrics");
+  await mobile.screenshot({
+    path: "/private/tmp/dos-esposas-mobile-asset-ledger.png",
+    fullPage: true,
+  });
+
   if (network === "shadownet") {
     await mobile.goto(`${baseUrl}/forge`);
     await mobile.getByRole("heading", { name: "Asset forge" }).waitFor();
@@ -416,6 +472,15 @@ try {
     "320px mobile kitchen",
   );
   await checkPage(narrowMobile, "320px mobile kitchen");
+  await narrowMobile.goto(`${baseUrl}/menu`);
+  await settle(narrowMobile);
+  await checkAssetMetricCard(narrowMobile, network, "320px catalog");
+  await checkPage(narrowMobile, "320px catalog metrics");
+  await narrowMobile.goto(`${baseUrl}/items/avocado`);
+  await narrowMobile.getByRole("heading", { name: "Avocado" }).waitFor();
+  await settle(narrowMobile);
+  await checkAssetLedger(narrowMobile, network, "320px item detail");
+  await checkPage(narrowMobile, "320px item detail metrics");
   await narrowMobile.close();
 
   const reducedMotion = await browser.newPage({
@@ -452,7 +517,7 @@ try {
   }
 
   console.log(
-    `UI smoke check passed on ${network}: pantry, catalog filtering, market, asset forge, kitchen recipes, conversion metrics, replate conversion, item details, trades, mobile navigation, images, console, and overflow.`,
+    `UI smoke check passed on ${network}: pantry, catalog filtering, asset supply metrics, market, asset forge, kitchen recipes, conversion metrics, replate conversion, item details, trades, mobile navigation, images, console, and overflow.`,
   );
 } finally {
   await browser.close();

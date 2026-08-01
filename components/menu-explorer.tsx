@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { InventoryCard } from "@/components/inventory-card";
+import { useAssetMetrics } from "@/components/use-asset-metrics";
+import { useInventory } from "@/components/use-inventory";
+import { useWallet } from "@/components/wallet-provider";
 import {
   catalogCategories,
   catalogItems,
@@ -34,6 +37,20 @@ const categoryIcons = {
 export function MenuExplorer() {
   const [category, setCategory] = useState<CatalogCategory>("Appetizers");
   const [query, setQuery] = useState("");
+  const { address } = useWallet();
+  const inventory = useInventory(address);
+  const assetMetrics = useAssetMetrics();
+
+  const walletBalances = useMemo(
+    () =>
+      new Map(
+        inventory.balances.map((balance) => [
+          `${balance.contract}:${balance.tokenId}`,
+          balance.rawBalance,
+        ]),
+      ),
+    [inventory.balances],
+  );
 
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -97,7 +114,14 @@ export function MenuExplorer() {
           aria-label={`${results.length} ${category.toLowerCase()} contracts`}
         >
           {results.map((item, index) => (
-            <InventoryCard key={item.slug} item={item} index={index} />
+            <InventoryCard
+              key={item.slug}
+              item={item}
+              rawBalance={walletBalances.get(`${item.contract}:${item.tokenId}`)}
+              metric={assetMetrics.byKey.get(`${item.contract}:${item.tokenId}`)}
+              metricsLoading={assetMetrics.loading}
+              index={index}
+            />
           ))}
         </div>
       ) : (
