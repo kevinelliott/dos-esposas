@@ -9,7 +9,10 @@ import {
   SYSTEM_WALLET,
 } from "@/lib/catalog";
 import { hasTestnetDeployment, networkConfig } from "@/lib/network";
-import { fetchAllTokenBalances } from "@/lib/tzkt-balances";
+import {
+  fetchAllTokenBalances,
+  type TzktTokenBalance,
+} from "@/lib/tzkt-balances";
 import { fetchAllTokenRecords, fetchTzktHead } from "@/lib/tzkt-tokens";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +26,18 @@ function unavailable(reason: string, status = 200) {
     metrics: [],
   };
   return NextResponse.json(payload, { status });
+}
+
+function indexBalances(rows: TzktTokenBalance[], role: string) {
+  const indexed = new Map<string, TzktTokenBalance>();
+  for (const row of rows) {
+    const key = `${row.token.contract.address}:${row.token.tokenId}`;
+    if (indexed.has(key)) {
+      throw new Error(`Duplicate ${role} balance record for ${key}.`);
+    }
+    indexed.set(key, row);
+  }
+  return indexed;
 }
 
 export async function GET() {
@@ -60,18 +75,8 @@ export async function GET() {
       if (tokenRows.has(key)) throw new Error(`Duplicate token record for ${key}.`);
       tokenRows.set(key, token);
     }
-    const systemRows = new Map(
-      systemBalances.map((row) => [
-        `${row.token.contract.address}:${row.token.tokenId}`,
-        row,
-      ]),
-    );
-    const dumpsterRows = new Map(
-      dumpsterBalances.map((row) => [
-        `${row.token.contract.address}:${row.token.tokenId}`,
-        row,
-      ]),
-    );
+    const systemRows = indexBalances(systemBalances, "system-wallet");
+    const dumpsterRows = indexBalances(dumpsterBalances, "dumpster-wallet");
 
     const metrics = catalogItems.map((item) => {
       const key = `${item.contract}:${item.tokenId}`;

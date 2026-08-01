@@ -105,6 +105,13 @@ function count(value: number, label: string) {
   return value;
 }
 
+function timestamp(value: string, label: string) {
+  if (!value || Number.isNaN(Date.parse(value))) {
+    throw new Error(`${label} is not a valid timestamp.`);
+  }
+  return value;
+}
+
 export function createAssetMetric(input: AssetMetricInput): AssetMetric {
   if (!input.systemWallet) {
     throw new Error("The system wallet is not configured.");
@@ -133,6 +140,15 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
 
   const holdersAll = count(input.holdersAll, "Holder count");
   const indexedTransfers = count(input.indexedTransfers, "Transfer count");
+  timestamp(input.fetchedAt, "Fetch time");
+  timestamp(input.indexerHeadTime, "Indexer head time");
+  timestamp(input.tokenLastTime, "Token activity time");
+  if (input.systemBalanceLastTime) {
+    timestamp(input.systemBalanceLastTime, "System balance time");
+  }
+  if (input.dumpsterBalanceLastTime) {
+    timestamp(input.dumpsterBalanceLastTime, "Dumpster balance time");
+  }
   const classifiedPositiveHolders =
     (systemHeld > 0n ? 1 : 0) + (dumpsterHeld > 0n ? 1 : 0);
   if (classifiedPositiveHolders > holdersAll) {

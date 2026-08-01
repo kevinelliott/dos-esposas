@@ -59,6 +59,7 @@ test("fails closed on supply, custody, role, holder, or indexer drift", () => {
     { ...input, holdersAll: 1 },
     { ...input, indexerSynced: false },
     { ...input, systemHeldRaw: "not-a-nat" },
+    { ...input, indexerHeadTime: "not-a-time" },
   ];
   for (const candidate of invalid) {
     assert.throws(() => createAssetMetric(candidate));
