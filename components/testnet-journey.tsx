@@ -29,7 +29,7 @@ export function TestnetJourney() {
     });
   }, []);
 
-  if (!networkConfig.isTestnet) return null;
+  if (!networkConfig.isPublicTestnet) return null;
 
   const hasTez = Boolean(tezBalance.mutez && BigInt(tezBalance.mutez) > 0n);
   const steps = [

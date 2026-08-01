@@ -1,7 +1,9 @@
 # Dos Esposas
 
 A pixel-inspired Next.js interface for the Dos Esposas FA2 catalog on Tezos.
-It supports the live mainnet collection and a complete Shadownet test lab.
+Ordinary development targets a local Tezos sandbox; Shadownet is reserved for
+explicit final testing, and the product can still be built for live mainnet
+through its separate release workflow.
 
 ## Features
 
@@ -31,7 +33,7 @@ marketplace checkout, atomic trades, or recipe execution.
 
 ```bash
 npm install
-cp env.example .env.local
+npm --prefix ../project-crypt-tezos-localnet run localnet:up
 npm run dev
 ```
 
@@ -40,13 +42,21 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Configuration
 
 ```bash
-NEXT_PUBLIC_TEZOS_DAPP_NAME="Dos Esposas"
-NEXT_PUBLIC_TEZOS_NETWORK="mainnet"
-NEXT_PUBLIC_TEZOS_RPC_URL="https://mainnet.api.tez.ie"
+NEXT_PUBLIC_TEZOS_DAPP_NAME="Dos Esposas Local Lab"
+NEXT_PUBLIC_TEZOS_NETWORK="localnet"
+NEXT_PUBLIC_TEZOS_RPC_URL="http://127.0.0.1:8732"
+NEXT_PUBLIC_TEZOS_CHAIN_ID="NetXtJqPyJGB6Pc"
+NEXT_PUBLIC_TEZOS_INDEXER_URL=""
 NEXT_PUBLIC_MARKETPLACE_CONTRACT=""
 NEXT_PUBLIC_KITCHEN_CONTRACT=""
 NEXT_PUBLIC_MIGRATION_CONTRACT=""
 ```
+
+`npm run dev`, `npm run build`, and `npm start` verify the local RPC chain ID
+before launching. Missing, misspelled, or inconsistent network values stop the
+app. Localnet has no TzKT service, so inventory, operation confirmation, supply
+metrics, recipe policy, and deployment attestation return controlled unavailable
+responses instead of querying Shadownet or Mainnet.
 
 The marketplace adapter expects a `buy` entrypoint. The kitchen adapter expects
 a `craft` entrypoint accepting `recipe_id` and `quantity`. Leave these values
@@ -93,7 +103,7 @@ The compiled Michelson artifacts are included, so this step only needs the
 funded secret key in the current shell:
 
 ```bash
-SHADOWNET_PRIVATE_KEY="edsk..." npm run testnet:deploy
+SHADOWNET_PRIVATE_KEY="edsk..." npm run shadownet:deploy
 ```
 
 The deployer verifies Shadownet's chain ID, reveals a new account in a separate
@@ -116,7 +126,7 @@ operations so the deployment remains below Tezos' operation-size limit.
 ### 3. Run and test
 
 ```bash
-npm run dev:testnet
+npm run dev:shadownet
 ```
 
 Open [http://localhost:3000](http://localhost:3000), switch the wallet extension
@@ -178,7 +188,7 @@ to an already deployed compatible Shadownet contract:
 read -s SHADOWNET_PRIVATE_KEY
 export SHADOWNET_PRIVATE_KEY
 printf '\n'
-npm run testnet:metadata -- descriptions sync
+npm run shadownet:metadata -- descriptions sync
 unset SHADOWNET_PRIVATE_KEY
 ```
 
@@ -215,8 +225,8 @@ contract, use a test-only administrator key to manage accounts:
 read -s SHADOWNET_PRIVATE_KEY
 export SHADOWNET_PRIVATE_KEY
 printf '\n'
-npm run testnet:metadata -- manager add tz1...
-npm run testnet:metadata -- manager remove tz1...
+npm run shadownet:metadata -- manager add tz1...
+npm run shadownet:metadata -- manager remove tz1...
 unset SHADOWNET_PRIVATE_KEY
 ```
 
@@ -228,7 +238,7 @@ one operation:
 read -s SHADOWNET_PRIVATE_KEY
 export SHADOWNET_PRIVATE_KEY
 printf '\n'
-npm run testnet:metadata -- image 16 ipfs://bafy...
+npm run shadownet:metadata -- image 16 ipfs://bafy...
 unset SHADOWNET_PRIVATE_KEY
 ```
 
@@ -238,7 +248,7 @@ image URLs are accepted when the host is expected to remain stable.
 The same managers can update descriptions:
 
 ```bash
-npm run testnet:metadata -- description 16 "Updated description"
+npm run shadownet:metadata -- description 16 "Updated description"
 ```
 
 See [`docs/kitchen-economics.md`](docs/kitchen-economics.md) for event
@@ -250,6 +260,6 @@ payloads, default rewards, and testnet randomness limitations.
 npm run lint
 npm run typecheck
 npm run build
-npm run build:testnet
+npm run build:shadownet
 npm run verify:ui
 ```

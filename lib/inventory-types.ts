@@ -1,3 +1,5 @@
+import type { TezosNetwork } from "./network.ts";
+
 export type InventoryBalance = {
   contract: string;
   tokenId: number;
@@ -11,5 +13,5 @@ export type InventoryResponse = {
   balances: InventoryBalance[];
   fetchedAt: string;
   source: "tzkt";
-  network: "mainnet" | "shadownet";
+  network: TezosNetwork;
 };

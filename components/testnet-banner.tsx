@@ -52,7 +52,7 @@ export function TestnetBanner({
     if (hasStarterSet) markMilestone("starter");
   }, [hasStarterSet, markMilestone]);
 
-  if (!networkConfig.isTestnet) return null;
+  if (!networkConfig.isPublicTestnet) return null;
 
   const claim = async () => {
     if (!address) return;

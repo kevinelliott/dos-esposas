@@ -36,7 +36,9 @@
     "**/*.tsx",
     ".next/dev/types/**/*.ts",
     ".next-shadownet/types/**/*.ts",
-    ".next-shadownet/dev/types/**/*.ts"
+    ".next-shadownet/dev/types/**/*.ts",
+    ".next-localnet/types/**/*.ts",
+    ".next-localnet/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

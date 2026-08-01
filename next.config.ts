@@ -5,7 +5,9 @@ const nextConfig: NextConfig = {
   distDir:
     process.env.NEXT_PUBLIC_TEZOS_NETWORK === "shadownet"
       ? ".next-shadownet"
-      : ".next",
+      : process.env.NEXT_PUBLIC_TEZOS_NETWORK === "localnet"
+        ? ".next-localnet"
+        : ".next",
   poweredByHeader: false,
   turbopack: {
     root: process.cwd(),

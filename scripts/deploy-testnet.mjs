@@ -374,5 +374,5 @@ writeFileSync(resolve(".env.shadownet.local"), env, {
 });
 
 console.log(
-  "Shadownet metadata synchronized and .env.shadownet.local written. Start with: npm run dev:testnet",
+  "Shadownet metadata synchronized and .env.shadownet.local written. Start with: npm run dev:shadownet",
 );

@@ -15,11 +15,11 @@ const [command, action, ...values] = process.argv.slice(2);
 function usage() {
   return [
     "Usage:",
-    "  npm run testnet:metadata -- manager add <tz-address>",
-    "  npm run testnet:metadata -- manager remove <tz-address>",
-    "  npm run testnet:metadata -- image <token-id> <ipfs-or-https-uri>",
-    '  npm run testnet:metadata -- description <token-id> "New description"',
-    "  npm run testnet:metadata -- descriptions sync",
+    "  npm run shadownet:metadata -- manager add <tz-address>",
+    "  npm run shadownet:metadata -- manager remove <tz-address>",
+    "  npm run shadownet:metadata -- image <token-id> <ipfs-or-https-uri>",
+    '  npm run shadownet:metadata -- description <token-id> "New description"',
+    "  npm run shadownet:metadata -- descriptions sync",
   ].join("\n");
 }
 

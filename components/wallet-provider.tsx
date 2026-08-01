@@ -116,9 +116,12 @@ const walletRuntime = new WalletRuntime<BeaconWallet>(
       import("@taquito/beacon-wallet"),
       import("@taquito/beacon-wallet/types"),
     ]);
-    const networkType = networkConfig.isTestnet
-      ? NetworkType.SHADOWNET
-      : NetworkType.MAINNET;
+    const networkType =
+      networkConfig.walletNetwork === "custom"
+        ? NetworkType.CUSTOM
+        : networkConfig.walletNetwork === "shadownet"
+          ? NetworkType.SHADOWNET
+          : NetworkType.MAINNET;
 
     const wallet = new BeaconWallet({
       name: process.env.NEXT_PUBLIC_TEZOS_DAPP_NAME ?? "Dos Esposas",
@@ -184,7 +187,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       try {
-        setAddress(activeWalletAddress(nextAccount, networkConfig.id));
+        setAddress(activeWalletAddress(nextAccount, networkConfig.walletNetwork));
         if (inFlightOperations.current > 0) {
           setError(
             "The active wallet changed while preparing a request. Review and submit it again.",
@@ -216,7 +219,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           account
         ) {
           try {
-            setAddress(activeWalletAddress(account, networkConfig.id));
+            setAddress(activeWalletAddress(account, networkConfig.walletNetwork));
           } catch {
             setAddress("");
           }
@@ -239,7 +242,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     try {
       await walletRuntime.connect(async (wallet, generation) => {
         let account = await wallet.client.getActiveAccount();
-        if (account && account.network.type !== networkConfig.id) {
+        if (account && account.network.type !== networkConfig.walletNetwork) {
           await wallet.clearActiveAccount();
           account = undefined;
         }
@@ -317,13 +320,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         revision,
         requestedAddress,
         account,
-        expectedNetwork: networkConfig.id,
+        expectedNetwork: networkConfig.walletNetwork,
       });
       assertWalletOperation({
         session,
         currentRevision: sessionRevision.current,
         account,
-        expectedNetwork: networkConfig.id,
+        expectedNetwork: networkConfig.walletNetwork,
       });
       return session;
     },
@@ -338,7 +341,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         session,
         currentRevision: sessionRevision.current,
         account,
-        expectedNetwork: networkConfig.id,
+        expectedNetwork: networkConfig.walletNetwork,
       });
       return wallet;
     },
@@ -401,7 +404,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               session: operationSession,
               currentRevision: sessionRevision.current,
               account,
-              expectedNetwork: networkConfig.id,
+              expectedNetwork: networkConfig.walletNetwork,
             });
           }),
         );
@@ -475,7 +478,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               session: operationSession,
               currentRevision: sessionRevision.current,
               account,
-              expectedNetwork: networkConfig.id,
+              expectedNetwork: networkConfig.walletNetwork,
             });
           }),
         );
@@ -552,7 +555,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               session: operationSession,
               currentRevision: sessionRevision.current,
               account,
-              expectedNetwork: networkConfig.id,
+              expectedNetwork: networkConfig.walletNetwork,
             });
           }),
         );
@@ -637,7 +640,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               session: session!,
               currentRevision: sessionRevision.current,
               account: activeAccount,
-              expectedNetwork: networkConfig.id,
+              expectedNetwork: networkConfig.walletNetwork,
             });
           },
         );

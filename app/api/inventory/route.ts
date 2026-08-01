@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { catalogByContract } from "@/lib/catalog";
 import type { InventoryResponse } from "@/lib/inventory-types";
 import { networkConfig } from "@/lib/network";
+import { indexerUnavailableReason } from "@/lib/indexer-availability";
 import { replateBalanceKeys } from "@/lib/replate";
 import { fetchAllTokenBalances } from "@/lib/tzkt-balances";
 
@@ -18,6 +19,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: "A valid Tezos account is required." },
       { status: 400 },
+    );
+  }
+  const indexerUnavailable = indexerUnavailableReason(networkConfig);
+  if (indexerUnavailable) {
+    return NextResponse.json(
+      { error: indexerUnavailable },
+      { status: 503 },
     );
   }
 
