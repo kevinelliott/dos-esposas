@@ -62,6 +62,7 @@ export function resolveNetworkConfig(environment: NetworkEnvironment) {
       label: "Localnet",
       isTestnet: true,
       isPublicTestnet: false,
+      walletMutationsEnabled: true,
       walletNetwork: "custom" as const,
       chainId: exactValue(
         environment,
@@ -89,6 +90,7 @@ export function resolveNetworkConfig(environment: NetworkEnvironment) {
       label: "Shadownet",
       isTestnet: true,
       isPublicTestnet: true,
+      walletMutationsEnabled: true,
       walletNetwork: "shadownet" as const,
       chainId: exactValue(
         environment,
@@ -117,6 +119,7 @@ export function resolveNetworkConfig(environment: NetworkEnvironment) {
     label: "Mainnet",
     isTestnet: false,
     isPublicTestnet: false,
+    walletMutationsEnabled: false,
     walletNetwork: "mainnet" as const,
     chainId: exactValue(
       environment,
@@ -147,8 +150,38 @@ export function resolveNetworkConfig(environment: NetworkEnvironment) {
   };
 }
 
-export const networkConfig = resolveNetworkConfig(process.env);
+const publicNetworkEnvironment = {
+  NEXT_PUBLIC_TEZOS_NETWORK: process.env.NEXT_PUBLIC_TEZOS_NETWORK,
+  NEXT_PUBLIC_TEZOS_RPC_URL: process.env.NEXT_PUBLIC_TEZOS_RPC_URL,
+  NEXT_PUBLIC_TEZOS_CHAIN_ID: process.env.NEXT_PUBLIC_TEZOS_CHAIN_ID,
+  NEXT_PUBLIC_TEZOS_INDEXER_URL: process.env.NEXT_PUBLIC_TEZOS_INDEXER_URL,
+  NEXT_PUBLIC_TESTNET_ASSET_CONTRACT:
+    process.env.NEXT_PUBLIC_TESTNET_ASSET_CONTRACT,
+  NEXT_PUBLIC_TESTNET_CONTRACT_CODE_HASH:
+    process.env.NEXT_PUBLIC_TESTNET_CONTRACT_CODE_HASH,
+  NEXT_PUBLIC_TESTNET_POLICY_HASH:
+    process.env.NEXT_PUBLIC_TESTNET_POLICY_HASH,
+  NEXT_PUBLIC_TESTNET_DEPLOYMENT_MANIFEST_HASH:
+    process.env.NEXT_PUBLIC_TESTNET_DEPLOYMENT_MANIFEST_HASH,
+  NEXT_PUBLIC_TESTNET_LEGACY_CONTRACT:
+    process.env.NEXT_PUBLIC_TESTNET_LEGACY_CONTRACT,
+  NEXT_PUBLIC_TESTNET_SYSTEM_WALLET:
+    process.env.NEXT_PUBLIC_TESTNET_SYSTEM_WALLET,
+  NEXT_PUBLIC_MIGRATION_CONTRACT: process.env.NEXT_PUBLIC_MIGRATION_CONTRACT,
+};
+
+export const networkConfig = resolveNetworkConfig(publicNetworkEnvironment);
 export const tezosNetwork: TezosNetwork = networkConfig.id;
+
+export function assertWalletMutationAllowed(
+  config: { label: string; walletMutationsEnabled: boolean } = networkConfig,
+) {
+  if (!config.walletMutationsEnabled) {
+    throw new Error(
+      `${config.label} is read-only in this release profile; wallet signing and operations are disabled.`,
+    );
+  }
+}
 
 export const hasTestnetDeployment =
   !networkConfig.isTestnet ||

@@ -14,7 +14,7 @@ import {
   useActivity,
   type ActivityKind,
 } from "@/components/activity-provider";
-import { networkConfig } from "@/lib/network";
+import { assertWalletMutationAllowed, networkConfig } from "@/lib/network";
 import {
   activeWalletAddress,
 } from "@/lib/wallet-account";
@@ -391,6 +391,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const transfer = useCallback(
     async (request: TransferRequest) => {
+      assertWalletMutationAllowed();
       if (!address) throw new Error("Connect a wallet before transferring.");
       const activityId = startActivity({
         kind: "delivery",
@@ -470,6 +471,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       parameter: unknown,
       mutez = 0,
     ) => {
+      assertWalletMutationAllowed();
       if (!address) throw new Error("Connect a wallet before transacting.");
       const activity = contractActivity(entrypoint);
       const activityId = startActivity({
@@ -536,6 +538,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const batchContractCalls = useCallback(
     async (requests: ContractCallRequest[]) => {
+      assertWalletMutationAllowed();
       if (!address) throw new Error("Connect a wallet before transacting.");
       if (requests.length === 0) {
         throw new Error("The transaction batch is empty.");
@@ -622,6 +625,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const signMessage = useCallback(
     async (message: string) => {
+      assertWalletMutationAllowed();
       if (!address) throw new Error("Connect a wallet before signing.");
       if (!message.trim()) throw new Error("The message to sign is empty.");
       const activityId = startActivity({

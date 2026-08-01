@@ -3,6 +3,14 @@ import { chromium } from "@playwright/test";
 const baseUrl = process.env.BASE_URL ?? "http://127.0.0.1:3000";
 const browser = await chromium.launch({ headless: true });
 const errors = [];
+let activeNetwork = "mainnet";
+const localnetUnavailableRoutes = new Set([
+  "/api/asset-metrics",
+  "/api/contract-readiness",
+  "/api/inventory",
+  "/api/kitchen/recipes",
+  "/api/operation",
+]);
 
 async function settle(page) {
   await page.waitForLoadState("domcontentloaded");
@@ -209,9 +217,20 @@ function observe(page) {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("response", (response) => {
+    const responseUrl = new URL(response.url());
+    const expectedLocalnetUnavailable =
+      activeNetwork === "localnet" &&
+      response.status() === 503 &&
+      localnetUnavailableRoutes.has(responseUrl.pathname);
+    const expectedMainnetReadOnlyNotFound =
+      activeNetwork === "mainnet" &&
+      response.status() === 404 &&
+      responseUrl.pathname === "/trades";
     if (
       response.url().startsWith(baseUrl) &&
-      response.status() >= 400
+      response.status() >= 400 &&
+      !expectedLocalnetUnavailable &&
+      !expectedMainnetReadOnlyNotFound
     ) {
       errors.push(
         `Local request failed (${response.status()}): ${response.url()}`,
@@ -230,6 +249,7 @@ try {
   const network =
     (await desktop.locator('meta[name="tezos-network"]').getAttribute("content")) ??
     "mainnet";
+  activeNetwork = network;
   await desktop
     .getByRole("heading", { name: "Your wallet is the pantry." })
     .waitFor();
@@ -260,7 +280,7 @@ try {
 
   await desktop.goto(`${baseUrl}/market`);
   await desktop.getByRole("heading", { name: "Night market" }).waitFor();
-  if (network === "shadownet") {
+  if (network !== "mainnet") {
     const deploymentConfigured = await desktop
       .getByText(/Checkout contract is not deployed/)
       .isVisible()
@@ -284,7 +304,7 @@ try {
     fullPage: true,
   });
 
-  if (network === "shadownet") {
+  if (network !== "mainnet") {
     await desktop.goto(`${baseUrl}/forge`);
     await desktop.getByRole("heading", { name: "Asset forge" }).waitFor();
     const forgeCards = desktop.locator(".forge-card");
@@ -329,7 +349,7 @@ try {
   await checkKitchenAction(desktop, "Carne Asada", "Grill");
   await checkKitchenAction(desktop, "Tres Leches Cake", "Bake");
   await checkKitchenAction(desktop, "Spicy Michelada", "Shake");
-  if (network === "shadownet") {
+  if (network !== "mainnet") {
     await checkKitchenAction(desktop, "Pozole Rojo", "Simmer");
   }
   await desktop.evaluate(() => window.scrollTo(0, 0));
@@ -347,7 +367,7 @@ try {
   const conversionRows = desktop.locator(
     ".conversion-ledger > .conversion-table-wrap .conversion-table tbody tr",
   );
-  const expectedAssetRows = network === "shadownet" ? 57 : 39;
+  const expectedAssetRows = network === "mainnet" ? 39 : 57;
   if ((await conversionRows.count()) !== expectedAssetRows) {
     throw new Error(
       `conversion ledger rendered ${await conversionRows.count()} assets instead of ${expectedAssetRows}`,
@@ -361,7 +381,7 @@ try {
   }
   await desktop.getByPlaceholder("Search assets or symbols").fill("");
   await desktop.getByRole("button", { name: "Recipes" }).click();
-  const expectedRecipeRows = network === "shadownet" ? 22 : 10;
+  const expectedRecipeRows = network === "mainnet" ? 10 : 22;
   if ((await conversionRows.count()) !== expectedRecipeRows) {
     throw new Error(
       `conversion ledger rendered ${await conversionRows.count()} recipes instead of ${expectedRecipeRows}`,
@@ -407,10 +427,21 @@ try {
     fullPage: true,
   });
 
-  await desktop.goto(`${baseUrl}/trades`);
-  await desktop.getByRole("heading", { name: "Direct offers" }).waitFor();
-  await desktop.getByText("Connect to load offerable items").waitFor();
-  await checkPage(desktop, "desktop trades");
+  if (network === "mainnet") {
+    const tradesResponse = await desktop.goto(`${baseUrl}/trades`);
+    if (tradesResponse?.status() !== 404) {
+      throw new Error("read-only Mainnet profile did not reject /trades");
+    }
+    await desktop.goto(baseUrl);
+    if ((await desktop.locator('a[href="/trades"]').count()) !== 0) {
+      throw new Error("read-only Mainnet profile still links to Direct offers");
+    }
+  } else {
+    await desktop.goto(`${baseUrl}/trades`);
+    await desktop.getByRole("heading", { name: "Direct offers" }).waitFor();
+    await desktop.getByText("Connect to load offerable items").waitFor();
+    await checkPage(desktop, "desktop trades");
+  }
 
   const mobile = await browser.newPage({
     viewport: { width: 390, height: 844 },
@@ -475,7 +506,7 @@ try {
     fullPage: true,
   });
 
-  if (network === "shadownet") {
+  if (network !== "mainnet") {
     await mobile.goto(`${baseUrl}/forge`);
     await mobile.getByRole("heading", { name: "Asset forge" }).waitFor();
     await settle(mobile);

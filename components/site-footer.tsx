@@ -17,7 +17,9 @@ export function SiteFooter() {
           <Link href="/menu">Catalog</Link>
           <Link href="/kitchen">Kitchen</Link>
           <Link href="/conversions">Conversions</Link>
-          <Link href="/trades">Direct offers</Link>
+          {networkConfig.walletMutationsEnabled && (
+            <Link href="/trades">Direct offers</Link>
+          )}
           {networkConfig.hasIndexer && (
             <a
               href={

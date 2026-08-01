@@ -27,7 +27,9 @@ const secondaryNavItems = [
   { href: "/menu", label: "Catalog" },
   { href: "/conversions", label: "Metrics" },
   { href: "/replate", label: "Replate" },
-  { href: "/trades", label: "Direct offers" },
+  ...(networkConfig.walletMutationsEnabled
+    ? [{ href: "/trades", label: "Direct offers" }]
+    : []),
   ...(networkConfig.isTestnet ? [{ href: "/forge", label: "Forge" }] : []),
 ];
 const navItems = [...primaryNavItems, ...secondaryNavItems];
@@ -153,14 +155,16 @@ export function SiteHeader() {
           <ShoppingBasket />
           <span>Market</span>
         </Link>
-        <Link
-          href="/trades"
-          className={pathname === "/trades" ? "is-active" : undefined}
-          aria-current={pathname === "/trades" ? "page" : undefined}
-        >
-          <ArrowRightLeft />
-          <span>Offers</span>
-        </Link>
+        {networkConfig.walletMutationsEnabled && (
+          <Link
+            href="/trades"
+            className={pathname === "/trades" ? "is-active" : undefined}
+            aria-current={pathname === "/trades" ? "page" : undefined}
+          >
+            <ArrowRightLeft />
+            <span>Offers</span>
+          </Link>
+        )}
       </nav>
     </header>
   );

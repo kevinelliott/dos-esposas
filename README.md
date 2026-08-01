@@ -157,7 +157,9 @@ Mainnet has no development command. After separate production review, build the
 read-only Mainnet profile with `npm run build:mainnet` and serve that exact
 artifact with `npm run start:mainnet`. Both commands pin and verify Mainnet chain
 identity; ordinary `dev`, `build`, and `start` remain Localnet. Supplying any
-Mainnet mutation contract remains a separate audited release decision.
+Mainnet mutation contract remains a separate audited release decision. This
+profile hides Direct offers, returns not-found for `/trades`, and rejects every
+wallet signing, transfer, contract-call, and batch boundary before dispatch.
 
 ## Configuration
 

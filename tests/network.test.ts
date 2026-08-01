@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { resolveNetworkConfig } from "../lib/network.ts";
+import {
+  assertWalletMutationAllowed,
+  resolveNetworkConfig,
+} from "../lib/network.ts";
 import { indexerUnavailableReason } from "../lib/indexer-availability.ts";
 import {
   createProfileEnvironment,
@@ -21,6 +24,7 @@ test("localnet is loopback-only and has no indexer", () => {
   assert.equal(config.id, "localnet");
   assert.equal(config.walletNetwork, "custom");
   assert.equal(config.hasIndexer, false);
+  assert.equal(config.walletMutationsEnabled, true);
   assert.equal(config.tzktApiUrl, "");
   assert.match(indexerUnavailableReason(config), /rather than querying a public network/);
   assert.throws(
@@ -62,6 +66,19 @@ test("missing and unknown network selection fail closed", () => {
     () => resolveNetworkConfig({ ...localnet, NEXT_PUBLIC_TEZOS_NETWORK: "typo" }),
     /must explicitly be/,
   );
+});
+
+test("browser network configuration uses statically inlinable public variables", () => {
+  const source = readFileSync("lib/network.ts", "utf8");
+  assert.doesNotMatch(source, /resolveNetworkConfig\(process\.env\)/);
+  for (const key of [
+    "NEXT_PUBLIC_TEZOS_NETWORK",
+    "NEXT_PUBLIC_TEZOS_RPC_URL",
+    "NEXT_PUBLIC_TEZOS_CHAIN_ID",
+    "NEXT_PUBLIC_TEZOS_INDEXER_URL",
+  ]) {
+    assert.match(source, new RegExp(`process\\.env\\.${key}`), key);
+  }
 });
 
 test("ordinary development is localnet and Shadownet is explicit", () => {
@@ -110,6 +127,18 @@ test("Mainnet is build-only and pinned to the public chain identity", () => {
   assert.equal(environment.NEXT_PUBLIC_TEZOS_RPC_URL, "https://tezos-mainnet.octez.io");
   assert.equal(environment.NEXT_PUBLIC_TEZOS_CHAIN_ID, "NetXdQprcVkpaWU");
   assert.equal(environment.NEXT_PUBLIC_TEZOS_INDEXER_URL, "https://api.tzkt.io");
+  const config = resolveNetworkConfig(environment);
+  assert.equal(config.walletMutationsEnabled, false);
+  assert.throws(() => assertWalletMutationAllowed(config), /read-only/);
+  const walletProvider = readFileSync("components/wallet-provider.tsx", "utf8");
+  assert.equal(
+    [...walletProvider.matchAll(/assertWalletMutationAllowed\(\);/g)].length,
+    4,
+  );
+  assert.match(
+    readFileSync("app/trades/page.tsx", "utf8"),
+    /!networkConfig\.walletMutationsEnabled.*notFound\(\)/,
+  );
   const development = spawnSync(
     process.execPath,
     ["scripts/run-network.mjs", "mainnet", "dev"],
