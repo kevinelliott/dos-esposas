@@ -39,3 +39,27 @@ test("rejects a signer that differs from the displayed account", () => {
     /account changed/,
   );
 });
+
+test("custom accounts must match the configured Localnet RPC", () => {
+  const localAccount = {
+    address: "tz1-local-account",
+    network: { type: "custom", rpcUrl: "http://127.0.0.1:8732/" },
+  };
+  assert.equal(
+    activeWalletAddress(localAccount, "custom", "http://127.0.0.1:8732"),
+    localAccount.address,
+  );
+  assert.throws(
+    () => activeWalletAddress(localAccount, "custom", "http://127.0.0.1:18732"),
+    /configured Localnet RPC/,
+  );
+  assert.throws(
+    () =>
+      activeWalletAddress(
+        { ...localAccount, network: { type: "custom" } },
+        "custom",
+        "http://127.0.0.1:8732",
+      ),
+    /configured Localnet RPC/,
+  );
+});

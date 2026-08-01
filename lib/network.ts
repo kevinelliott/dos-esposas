@@ -126,7 +126,7 @@ export function resolveNetworkConfig(environment: NetworkEnvironment) {
     rpcUrl: exactValue(
       environment,
       "NEXT_PUBLIC_TEZOS_RPC_URL",
-      "https://mainnet.api.tez.ie",
+      "https://tezos-mainnet.octez.io",
     ),
     tzktApiUrl: exactValue(
       environment,

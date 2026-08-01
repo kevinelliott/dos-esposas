@@ -151,6 +151,14 @@ Do not copy Shadownet contract addresses, RPC URLs, TzKT URLs, or credentials
 into `.env.localnet`. The app must again render `localnet`, and indexer-backed
 features must return the controlled local unavailable state.
 
+### 6. Build an explicit Mainnet release candidate
+
+Mainnet has no development command. After separate production review, build the
+read-only Mainnet profile with `npm run build:mainnet` and serve that exact
+artifact with `npm run start:mainnet`. Both commands pin and verify Mainnet chain
+identity; ordinary `dev`, `build`, and `start` remain Localnet. Supplying any
+Mainnet mutation contract remains a separate audited release decision.
+
 ## Configuration
 
 ```bash
@@ -373,5 +381,6 @@ npm run lint
 npm run typecheck
 npm run build
 npm run build:shadownet
+npm run build:mainnet
 npm run verify:ui
 ```

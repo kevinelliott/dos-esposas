@@ -187,7 +187,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       try {
-        setAddress(activeWalletAddress(nextAccount, networkConfig.walletNetwork));
+        setAddress(
+          activeWalletAddress(nextAccount, networkConfig.walletNetwork, networkConfig.rpcUrl),
+        );
         if (inFlightOperations.current > 0) {
           setError(
             "The active wallet changed while preparing a request. Review and submit it again.",
@@ -219,7 +221,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           account
         ) {
           try {
-            setAddress(activeWalletAddress(account, networkConfig.walletNetwork));
+            setAddress(
+              activeWalletAddress(account, networkConfig.walletNetwork, networkConfig.rpcUrl),
+            );
           } catch {
             setAddress("");
           }
@@ -242,23 +246,29 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     try {
       await walletRuntime.connect(async (wallet, generation) => {
         let account = await wallet.client.getActiveAccount();
-        if (account && account.network.type !== networkConfig.walletNetwork) {
-          await wallet.clearActiveAccount();
-          account = undefined;
+        if (account) {
+          try {
+            activeWalletAddress(account, networkConfig.walletNetwork, networkConfig.rpcUrl);
+          } catch {
+            await wallet.clearActiveAccount();
+            account = undefined;
+          }
         }
         if (!account) {
           await wallet.requestPermissions();
           account = await wallet.client.getActiveAccount();
         }
-        if (!account?.address) {
-          throw new Error("No wallet account was returned.");
-        }
+        const connectedAddress = activeWalletAddress(
+          account,
+          networkConfig.walletNetwork,
+          networkConfig.rpcUrl,
+        );
         if (!walletRuntime.isCurrent(wallet, generation)) {
           throw new Error(
             "The wallet connection changed while the request was in progress. Try again.",
           );
         }
-        setAddress(account.address);
+        setAddress(connectedAddress);
       });
       if (revision === sessionRevision.current) {
         setStatus("idle");
@@ -321,12 +331,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         requestedAddress,
         account,
         expectedNetwork: networkConfig.walletNetwork,
+        expectedRpcUrl: networkConfig.rpcUrl,
       });
       assertWalletOperation({
         session,
         currentRevision: sessionRevision.current,
         account,
         expectedNetwork: networkConfig.walletNetwork,
+        expectedRpcUrl: networkConfig.rpcUrl,
       });
       return session;
     },
@@ -342,6 +354,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         currentRevision: sessionRevision.current,
         account,
         expectedNetwork: networkConfig.walletNetwork,
+        expectedRpcUrl: networkConfig.rpcUrl,
       });
       return wallet;
     },
@@ -405,6 +418,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               currentRevision: sessionRevision.current,
               account,
               expectedNetwork: networkConfig.walletNetwork,
+              expectedRpcUrl: networkConfig.rpcUrl,
             });
           }),
         );
@@ -479,6 +493,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               currentRevision: sessionRevision.current,
               account,
               expectedNetwork: networkConfig.walletNetwork,
+              expectedRpcUrl: networkConfig.rpcUrl,
             });
           }),
         );
@@ -556,6 +571,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               currentRevision: sessionRevision.current,
               account,
               expectedNetwork: networkConfig.walletNetwork,
+              expectedRpcUrl: networkConfig.rpcUrl,
             });
           }),
         );
@@ -641,6 +657,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               currentRevision: sessionRevision.current,
               account: activeAccount,
               expectedNetwork: networkConfig.walletNetwork,
+              expectedRpcUrl: networkConfig.rpcUrl,
             });
           },
         );
