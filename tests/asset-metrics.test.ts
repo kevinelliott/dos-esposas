@@ -61,12 +61,34 @@ test("fails closed on supply, custody, role, holder, or indexer drift", () => {
     { ...input, indexerSynced: "false" as unknown as boolean },
     { ...input, systemHeldRaw: "not-a-nat" },
     { ...input, indexerHeadTime: "not-a-time" },
+    { ...input, indexerHeadTime: "0" },
+    { ...input, tokenLastTime: 1 as unknown as string },
+    { ...input, tokenLastTime: "2026-08-01" },
+    { ...input, tokenLastTime: "2026-02-30T00:00:00Z" },
+    { ...input, indexerHeadTime: "2026-08-01T00:49:00Z" },
+    { ...input, indexerHeadTime: "2026-08-01T01:03:01Z" },
+    { ...input, tokenLastLevel: 106 },
+    { ...input, tokenLastTime: "2026-08-01T01:02:01Z" },
+    { ...input, systemBalanceLastTime: "2026-08-01T01:02:01Z" },
+    { ...input, dumpsterBalanceLastTime: "2026-08-01T01:02:01Z" },
     { ...input, dumpsterWallet: undefined },
     { ...input, dumpsterHeldRaw: undefined },
   ];
   for (const candidate of invalid) {
     assert.throws(() => createAssetMetric(candidate));
   }
+});
+
+test("allows only bounded non-atomic freshness skew", () => {
+  const metric = createAssetMetric({
+    ...input,
+    indexerHeadTime: "2026-08-01T00:50:00Z",
+    tokenLastLevel: 105,
+    tokenLastTime: "2026-08-01T00:52:00Z",
+    systemBalanceLastTime: "2026-08-01T00:52:00Z",
+    dumpsterBalanceLastTime: "2026-08-01T00:52:00Z",
+  });
+  assert.equal(metric.quality.state, "complete");
 });
 
 test("omits an unconfigured dumpster role instead of manufacturing zero", () => {

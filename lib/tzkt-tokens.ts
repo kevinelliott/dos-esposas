@@ -1,3 +1,5 @@
+import { parseRfc3339 } from "./asset-metrics.ts";
+
 export type TzktTokenRecord = {
   tokenId: string;
   totalMinted: string;
@@ -64,10 +66,10 @@ export async function fetchTzktHead(
     !Number.isSafeInteger(payload.level) ||
     Number(payload.level) < 0 ||
     typeof payload.timestamp !== "string" ||
-    Number.isNaN(Date.parse(payload.timestamp)) ||
     payload.synced !== true
   ) {
     throw new Error("TzKT returned invalid or unsynced head data.");
   }
+  parseRfc3339(payload.timestamp, "TzKT head time");
   return payload as TzktHead;
 }

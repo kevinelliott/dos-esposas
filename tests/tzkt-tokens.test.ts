@@ -71,4 +71,21 @@ test("reads head provenance and surfaces TzKT failures", async () => {
     ),
     /invalid or unsynced head data/,
   );
+  for (const timestamp of [
+    "0",
+    1,
+    "2026-08-01",
+    "2026-02-30T00:00:00Z",
+  ]) {
+    await assert.rejects(
+      fetchTzktHead(
+        "https://example.invalid",
+        (async () =>
+          new Response(
+            JSON.stringify({ level: 10, timestamp, synced: true }),
+          )) as typeof fetch,
+      ),
+      /RFC3339|invalid or unsynced head data/,
+    );
+  }
 });

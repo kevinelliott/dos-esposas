@@ -1,5 +1,8 @@
 export const ASSET_METRICS_SCHEMA_VERSION = 1 as const;
 export const WALLET_ROLE_REGISTRY_VERSION = "2026-08-01";
+const MAX_HEAD_AGE_MS = 10 * 60 * 1000;
+const MAX_FUTURE_SKEW_MS = 2 * 60 * 1000;
+const MAX_HEAD_LEVEL_SKEW = 5;
 
 export type AssetMetricInput = {
   network: "mainnet" | "shadownet";
@@ -109,11 +112,42 @@ function count(value: number, label: string) {
   return value;
 }
 
-function timestamp(value: string, label: string) {
-  if (!value || Number.isNaN(Date.parse(value))) {
-    throw new Error(`${label} is not a valid timestamp.`);
+export function parseRfc3339(value: unknown, label: string) {
+  if (typeof value !== "string") {
+    throw new Error(`${label} is not a zoned RFC3339 timestamp.`);
   }
-  return value;
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/,
+  );
+  if (!match) {
+    throw new Error(`${label} is not a zoned RFC3339 timestamp.`);
+  }
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, zone] = match;
+  const [year, month, day, hour, minute, second] = [
+    yearText,
+    monthText,
+    dayText,
+    hourText,
+    minuteText,
+    secondText,
+  ].map(Number);
+  const calendar = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  const validCalendar =
+    year >= 1970 &&
+    calendar.getUTCFullYear() === year &&
+    calendar.getUTCMonth() === month - 1 &&
+    calendar.getUTCDate() === day &&
+    calendar.getUTCHours() === hour &&
+    calendar.getUTCMinutes() === minute &&
+    calendar.getUTCSeconds() === second;
+  const validOffset =
+    zone === "Z" ||
+    (Number(zone.slice(1, 3)) <= 23 && Number(zone.slice(4, 6)) <= 59);
+  const instant = Date.parse(value);
+  if (!validCalendar || !validOffset || !Number.isFinite(instant)) {
+    throw new Error(`${label} is not a real RFC3339 instant.`);
+  }
+  return instant;
 }
 
 export function createAssetMetric(input: AssetMetricInput): AssetMetric {
@@ -149,14 +183,40 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
 
   const holdersAll = count(input.holdersAll, "Holder count");
   const indexedTransfers = count(input.indexedTransfers, "Transfer count");
-  timestamp(input.fetchedAt, "Fetch time");
-  timestamp(input.indexerHeadTime, "Indexer head time");
-  timestamp(input.tokenLastTime, "Token activity time");
+  const fetchedAt = parseRfc3339(input.fetchedAt, "Fetch time");
+  const headTime = parseRfc3339(input.indexerHeadTime, "Indexer head time");
+  const tokenTime = parseRfc3339(input.tokenLastTime, "Token activity time");
+  const headLevel = count(input.indexerHeadLevel, "Indexer head level");
+  const tokenLevel = count(input.tokenLastLevel, "Token activity level");
+  if (fetchedAt - headTime > MAX_HEAD_AGE_MS) {
+    throw new Error("The synced indexer head is stale.");
+  }
+  if (headTime - fetchedAt > MAX_FUTURE_SKEW_MS) {
+    throw new Error("The indexer head is implausibly ahead of fetch time.");
+  }
+  if (tokenLevel > headLevel + MAX_HEAD_LEVEL_SKEW) {
+    throw new Error("Token activity is materially ahead of the indexer head.");
+  }
+  if (tokenTime - headTime > MAX_FUTURE_SKEW_MS) {
+    throw new Error("Token activity time is materially ahead of the indexer head.");
+  }
   if (input.systemBalanceLastTime) {
-    timestamp(input.systemBalanceLastTime, "System balance time");
+    const systemBalanceTime = parseRfc3339(
+      input.systemBalanceLastTime,
+      "System balance time",
+    );
+    if (systemBalanceTime - headTime > MAX_FUTURE_SKEW_MS) {
+      throw new Error("System balance time is materially ahead of the indexer head.");
+    }
   }
   if (input.dumpsterBalanceLastTime) {
-    timestamp(input.dumpsterBalanceLastTime, "Dumpster balance time");
+    const dumpsterBalanceTime = parseRfc3339(
+      input.dumpsterBalanceLastTime,
+      "Dumpster balance time",
+    );
+    if (dumpsterBalanceTime - headTime > MAX_FUTURE_SKEW_MS) {
+      throw new Error("Dumpster balance time is materially ahead of the indexer head.");
+    }
   }
   const classifiedPositiveHolders =
     (systemHeld > 0n ? 1 : 0) + (dumpsterHeld > 0n ? 1 : 0);
@@ -202,10 +262,10 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
     },
     freshness: {
       fetchedAt: input.fetchedAt,
-      indexerHeadLevel: count(input.indexerHeadLevel, "Indexer head level"),
+      indexerHeadLevel: headLevel,
       indexerHeadTime: input.indexerHeadTime,
       indexerSynced: true,
-      tokenLastLevel: count(input.tokenLastLevel, "Token activity level"),
+      tokenLastLevel: tokenLevel,
       tokenLastTime: input.tokenLastTime,
       roleBalanceLastTimes: {
         [input.systemWallet]: input.systemBalanceLastTime ?? null,

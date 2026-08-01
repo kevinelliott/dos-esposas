@@ -72,7 +72,13 @@ export function InventoryCard({
               : ""}
           </b>
         </span>
-        <span title="Outstanding supply outside the known system and dumpster wallets">
+        <span
+          title={
+            DUMPSTER_WALLET
+              ? "Outstanding supply outside the known system and dumpster wallets"
+              : "Outstanding supply outside the known Dos Esposas system wallet"
+          }
+        >
           <small>Outside known</small>
           <b>{amount(metric?.derived.outsideKnownCustodyRaw)}</b>
         </span>
