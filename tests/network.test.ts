@@ -111,9 +111,15 @@ test("published Shadownet commands and checkout copy match the release", () => {
   }
   const banner = readFileSync("components/testnet-banner.tsx", "utf8");
   const journey = readFileSync("components/testnet-journey.tsx", "utf8");
+  const readme = readFileSync("README.md", "utf8");
   assert.doesNotMatch(banner, /exercise checkout/);
   assert.match(banner, /Checkout remains safety-locked/);
   assert.match(journey, /checkout is intentionally unavailable/);
+  assert.doesNotMatch(
+    readme,
+    /exercise checkout|test purchases|Purchases using valueless|Purchases and crafting/i,
+  );
+  assert.match(readme, /Checkout remains unavailable throughout this rehearsal/);
 });
 
 test("profile launch removes ambient chain, deployment, and key contamination", () => {

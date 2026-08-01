@@ -255,9 +255,9 @@ npm run dev:shadownet
 
 Open [http://localhost:3000](http://localhost:3000), switch the wallet extension
 to Shadownet, connect, and use **Claim starter pantry** or open **Asset Forge**
-to mint any of the 57 asset types. Purchases and crafting then submit real
-Shadownet operations, while trade delivery uses the contract's FA2 `transfer`
-entrypoint.
+to mint any of the 57 asset types. Crafting submits real Shadownet operations,
+while signed direct-offer delivery uses the contract's FA2 `transfer`
+entrypoint. Checkout remains unavailable throughout this rehearsal.
 
 Open **Replate**, claim the legacy rehearsal set, choose one of the 39 original
 items, confirm permanent capture, and ring the Replate bell. The wallet signs
