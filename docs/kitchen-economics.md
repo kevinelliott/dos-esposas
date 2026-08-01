@@ -148,16 +148,16 @@ compiled storage.
 The deployment account grants or revokes a manager:
 
 ```bash
-npm run testnet:metadata -- manager add tz1...
-npm run testnet:metadata -- manager remove tz1...
+npm run shadownet:metadata -- manager add tz1...
+npm run shadownet:metadata -- manager remove tz1...
 ```
 
 The administrator or an enabled manager can update one description or
 synchronize all saved descriptions:
 
 ```bash
-npm run testnet:metadata -- description 16 "New Guacamole description"
-npm run testnet:metadata -- descriptions sync
+npm run shadownet:metadata -- description 16 "New Guacamole description"
+npm run shadownet:metadata -- descriptions sync
 ```
 
 ## Event data
@@ -195,7 +195,7 @@ PYTHON=/path/to/smartpy-venv/bin/python npm run testnet:compile
 Then originate the new Shadownet contracts:
 
 ```bash
-SHADOWNET_PRIVATE_KEY="edsk..." npm run testnet:deploy
+SHADOWNET_PRIVATE_KEY="edsk..." npm run shadownet:deploy
 ```
 
 The scenario verifies manager permissions and revocation, description updates,

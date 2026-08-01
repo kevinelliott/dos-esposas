@@ -26,7 +26,7 @@ token IDs, decimals, and replacement token IDs. All 39 original contracts
 expose the FA2 `transfer` and `update_operators` entrypoints required by this
 flow.
 
-On Shadownet, `npm run testnet:deploy` originates:
+On Shadownet, `npm run shadownet:deploy` originates:
 
 - A 39-token legacy rehearsal FA2 with one claim per wallet
 - The 57-token replacement FA2 with the rehearsal address in its migration map

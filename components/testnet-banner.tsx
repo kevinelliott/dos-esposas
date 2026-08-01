@@ -122,8 +122,8 @@ export function TestnetBanner({
         <h2>Free test tokens. Real wallet signatures.</h2>
         <p>
           Fund your wallet with test tez, claim all {catalogItems.length} starter
-          items once, then exercise checkout, crafting, inventory, and FA2
-          delivery without spending mainnet funds.
+          items once, then exercise crafting, inventory, signed offers, and FA2
+          delivery without spending mainnet funds. Checkout remains safety-locked.
         </p>
         <ol className="testnet-checklist" aria-label="Shadownet setup">
           {[

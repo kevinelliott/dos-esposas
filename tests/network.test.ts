@@ -96,6 +96,26 @@ test("ordinary development is localnet and Shadownet is explicit", () => {
   assert.match(gitignore, /^\/next-env\.d\.ts$/m);
 });
 
+test("published Shadownet commands and checkout copy match the release", () => {
+  for (const path of [
+    ".env.shadownet",
+    "README.md",
+    "docs/kitchen-economics.md",
+    "docs/replate-migration.md",
+  ]) {
+    assert.doesNotMatch(
+      readFileSync(path, "utf8"),
+      /npm run testnet:(?:deploy|metadata)/,
+      path,
+    );
+  }
+  const banner = readFileSync("components/testnet-banner.tsx", "utf8");
+  const journey = readFileSync("components/testnet-journey.tsx", "utf8");
+  assert.doesNotMatch(banner, /exercise checkout/);
+  assert.match(banner, /Checkout remains safety-locked/);
+  assert.match(journey, /checkout is intentionally unavailable/);
+});
+
 test("profile launch removes ambient chain, deployment, and key contamination", () => {
   const contaminated = Object.fromEntries(
     PROFILE_ENVIRONMENT_KEYS.map((key) => [key, "stale-shadownet-value"]),

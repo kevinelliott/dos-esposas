@@ -20,14 +20,16 @@ through its separate release workflow.
   recursively expanded base-ingredient costs
 - **Replate** conversion for exchanging original issues for matching new assets
 - Local trade proposals with real wallet-signed FA2 delivery
-- Contract-gated marketplace checkout and kitchen crafting
+- Safety-locked marketplace checkout and contract-gated kitchen crafting
 - Shadownet starter claims, per-asset and full-catalog minting, test
-  purchases, recipes, and FA2 trades
+  recipe rehearsals, signed offers, and FA2 delivery
 
-The project intentionally does not accept purchase funds or burn recipe inputs
-on mainnet unless the relevant contract address is configured. The original
-mainnet Dos Esposas asset contracts are standard FA2 tokens; they do not provide
-marketplace checkout, atomic trades, or recipe execution.
+The current release does not accept checkout funds on any profile. Shadownet
+checkout remains safety-locked because the rehearsal contract does not enforce
+price or stock on-chain, and the Mainnet profile rejects all wallet signing and
+operations. The original Mainnet Dos Esposas asset contracts are standard FA2
+tokens; they do not provide marketplace checkout, atomic trades, or recipe
+execution.
 
 ## Local-first lifecycle
 
@@ -200,11 +202,11 @@ The included FA2 test contract provides all 57 Dos Esposas item types plus:
 - Atomic Replate capture and replacement minting for the 39 original assets
 - A one-time starter pantry claim of 25 units per item
 - Repeatable per-asset minting and full-catalog batch minting
-- Purchases using valueless test tez
+- A legacy `buy` entrypoint that remains unapproved and safety-locked in the app
 - Twenty-two recipes spanning eight distinct kitchen operations
 - Supply-reducing burns for hot kitchen actions, reserve transfers for cold
   actions, and one independent roll per configured bonus type
-- Distinct forge, checkout, trade, Replate, and kitchen transaction phases
+- Distinct forge, trade, Replate, and kitchen transaction phases
 - Standard FA2 transfers for user-to-user trade delivery
 - Revocable asset managers for token images and descriptions
 - Mainnet-matched metadata, decimal scales, and initial supplies for the 39
