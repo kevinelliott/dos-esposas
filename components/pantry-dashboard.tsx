@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { InventoryCard } from "@/components/inventory-card";
 import { TestnetBanner } from "@/components/testnet-banner";
+import { useAssetMetrics } from "@/components/use-asset-metrics";
 import { useInventory } from "@/components/use-inventory";
 import { useWallet } from "@/components/wallet-provider";
 import {
@@ -29,6 +30,7 @@ import { formatTokenAmount } from "@/lib/units";
 export function PantryDashboard() {
   const { address, connect, status } = useWallet();
   const { balances, loading, error, refresh } = useInventory(address);
+  const assetMetrics = useAssetMetrics();
   const [query, setQuery] = useState("");
 
   const ownedItems = useMemo(
@@ -299,6 +301,8 @@ export function PantryDashboard() {
                   key={item.slug}
                   item={item}
                   rawBalance={balance.rawBalance}
+                  metric={assetMetrics.byKey.get(`${item.contract}:${item.tokenId}`)}
+                  metricsLoading={assetMetrics.loading}
                   index={index}
                 />
               ))}

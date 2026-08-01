@@ -55,6 +55,8 @@ export function MarketStall() {
   const marketplace =
     process.env.NEXT_PUBLIC_MARKETPLACE_CONTRACT ||
     (networkConfig.isTestnet ? networkConfig.assetContract : "");
+  const checkoutSafe =
+    Boolean(marketplace) && !networkConfig.isTestnet;
   const {
     address,
     connect,
@@ -82,7 +84,7 @@ export function MarketStall() {
   const [reviewItem, setReviewItem] = useState<CatalogItem | null>(null);
   const [reviewBundle, setReviewBundle] = useState(false);
   const [receipt, setReceipt] = useState<{
-    state: "pending" | "success" | "error";
+    state: "pending" | "submitted" | "success" | "error";
     title: string;
     detail: string;
     hash?: string;
@@ -222,7 +224,7 @@ export function MarketStall() {
       await connect().catch(() => undefined);
       return;
     }
-    if (!marketplace) return;
+    if (!checkoutSafe || !marketplace) return;
 
     const quantity = quantityFor(item);
     const price = prices[item.tier] * quantity;
@@ -252,9 +254,9 @@ export function MarketStall() {
       setPhase("dispatching");
       await actionDelay(interfaceTimings.marketDispatch);
       setReceipt({
-        state: "success",
-        title: `${quantity} ${item.symbol} purchased`,
-        detail: `${price.toFixed(2)} XTZ submitted to the marketplace contract.`,
+        state: "submitted",
+        title: `${quantity} ${item.symbol} purchase submitted`,
+        detail: `${price.toFixed(2)} XTZ was submitted. Delivery is not confirmed until the operation applies.`,
         hash,
       });
       refresh();
@@ -277,6 +279,7 @@ export function MarketStall() {
   };
 
   const requestBuy = async (item: CatalogItem) => {
+    if (!checkoutSafe) return;
     if (!address) {
       await connect().catch(() => undefined);
       return;
@@ -289,7 +292,14 @@ export function MarketStall() {
       await connect().catch(() => undefined);
       return;
     }
-    if (!marketplace || !contextRecipe || bundleItems.length === 0) return;
+    if (
+      !checkoutSafe ||
+      !marketplace ||
+      !contextRecipe ||
+      bundleItems.length === 0
+    ) {
+      return;
+    }
 
     setReviewBundle(false);
     setPending("__bundle__");
@@ -320,9 +330,9 @@ export function MarketStall() {
       setPhase("dispatching");
       await actionDelay(interfaceTimings.marketDispatch);
       setReceipt({
-        state: "success",
-        title: `${contextRecipe.name} ingredients purchased`,
-        detail: `${bundleItems.length} missing item types were submitted in one ${bundlePrice.toFixed(2)} XTZ wallet batch.`,
+        state: "submitted",
+        title: `${contextRecipe.name} ingredients submitted`,
+        detail: `${bundleItems.length} missing item types were submitted in one ${bundlePrice.toFixed(2)} XTZ wallet batch. Delivery is not yet confirmed.`,
         hash,
       });
       refresh();
@@ -416,14 +426,19 @@ export function MarketStall() {
         </div>
       </header>
 
-      {!marketplace && (
+      {!checkoutSafe && (
         <div className="system-notice">
           <LockKeyhole size={20} />
           <div>
-            <strong>Checkout contract is not deployed</strong>
+            <strong>
+              {marketplace
+                ? "Shadownet checkout is safety-locked"
+                : "Checkout contract is not deployed"}
+            </strong>
             <p>
-              Stock remains visible, but payment is locked until a compatible
-              delivery contract is configured.
+              {marketplace
+                ? "Stock remains visible, but purchases stay disabled until price, quantity, and stock are enforced by the contract—not by this page."
+                : "Stock remains visible, but payment is locked until a compatible delivery contract is configured."}
             </p>
           </div>
         </div>
@@ -465,7 +480,7 @@ export function MarketStall() {
                 }}
                 disabled={
                   busy ||
-                  !marketplace ||
+                  !checkoutSafe ||
                   !bundleInStock ||
                   bundleNeedsTez
                 }
@@ -727,10 +742,17 @@ export function MarketStall() {
                       className="button button--primary"
                       type="button"
                       onClick={() => void requestBuy(item)}
-                      disabled={!marketplace || busy || soldOut || insufficientTez}
+                      disabled={
+                        !checkoutSafe ||
+                        busy ||
+                        soldOut ||
+                        insufficientTez
+                      }
                       title={
-                        !marketplace
-                          ? "Marketplace contract required"
+                        !checkoutSafe
+                          ? marketplace
+                            ? "Checkout is locked until price and stock are enforced on-chain"
+                            : "Marketplace contract required"
                           : soldOut
                             ? "System stock is empty"
                             : insufficientTez
@@ -738,7 +760,7 @@ export function MarketStall() {
                               : `Review ${quantity} ${item.symbol} purchase`
                       }
                     >
-                      {!marketplace ? (
+                      {!checkoutSafe ? (
                         <LockKeyhole size={17} />
                       ) : pending === item.slug ? (
                         phase === "packing" ? (

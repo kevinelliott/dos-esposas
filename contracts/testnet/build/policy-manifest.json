@@ -1,0 +1,1289 @@
+{
+  "sha256": "667fb76144233c5b9d60b22dbfd911cb36fb80be22033739b1d943fc151daa60",
+  "policy": {
+    "version": 1,
+    "nextTokenId": "57",
+    "unitScales": [
+      {
+        "key": "0",
+        "value": "1000000"
+      },
+      {
+        "key": "1",
+        "value": "1000000"
+      },
+      {
+        "key": "2",
+        "value": "1000000"
+      },
+      {
+        "key": "3",
+        "value": "1000000"
+      },
+      {
+        "key": "4",
+        "value": "1000000"
+      },
+      {
+        "key": "5",
+        "value": "1000000"
+      },
+      {
+        "key": "6",
+        "value": "1000000"
+      },
+      {
+        "key": "7",
+        "value": "1000000"
+      },
+      {
+        "key": "8",
+        "value": "1000000"
+      },
+      {
+        "key": "9",
+        "value": "1000000"
+      },
+      {
+        "key": "10",
+        "value": "100"
+      },
+      {
+        "key": "11",
+        "value": "1000000"
+      },
+      {
+        "key": "12",
+        "value": "1000000"
+      },
+      {
+        "key": "13",
+        "value": "100000000"
+      },
+      {
+        "key": "14",
+        "value": "1000000"
+      },
+      {
+        "key": "15",
+        "value": "100000000"
+      },
+      {
+        "key": "16",
+        "value": "1000000"
+      },
+      {
+        "key": "17",
+        "value": "100000000"
+      },
+      {
+        "key": "18",
+        "value": "100000000"
+      },
+      {
+        "key": "19",
+        "value": "100000000"
+      },
+      {
+        "key": "20",
+        "value": "100000000"
+      },
+      {
+        "key": "21",
+        "value": "1000000"
+      },
+      {
+        "key": "22",
+        "value": "1000000"
+      },
+      {
+        "key": "23",
+        "value": "1000000"
+      },
+      {
+        "key": "24",
+        "value": "1000000"
+      },
+      {
+        "key": "25",
+        "value": "1000000"
+      },
+      {
+        "key": "26",
+        "value": "1000000"
+      },
+      {
+        "key": "27",
+        "value": "100000000"
+      },
+      {
+        "key": "28",
+        "value": "1000000"
+      },
+      {
+        "key": "29",
+        "value": "1000000"
+      },
+      {
+        "key": "30",
+        "value": "1000000"
+      },
+      {
+        "key": "31",
+        "value": "1000000"
+      },
+      {
+        "key": "32",
+        "value": "1000000"
+      },
+      {
+        "key": "33",
+        "value": "100000000"
+      },
+      {
+        "key": "34",
+        "value": "1000000"
+      },
+      {
+        "key": "35",
+        "value": "1000000"
+      },
+      {
+        "key": "36",
+        "value": "1000000"
+      },
+      {
+        "key": "37",
+        "value": "1000000"
+      },
+      {
+        "key": "38",
+        "value": "1000000"
+      },
+      {
+        "key": "39",
+        "value": "1000000"
+      },
+      {
+        "key": "40",
+        "value": "1000000"
+      },
+      {
+        "key": "41",
+        "value": "1000000"
+      },
+      {
+        "key": "42",
+        "value": "1000000"
+      },
+      {
+        "key": "43",
+        "value": "1000000"
+      },
+      {
+        "key": "44",
+        "value": "1000000"
+      },
+      {
+        "key": "45",
+        "value": "1000000"
+      },
+      {
+        "key": "46",
+        "value": "1000000"
+      },
+      {
+        "key": "47",
+        "value": "1000000"
+      },
+      {
+        "key": "48",
+        "value": "1000000"
+      },
+      {
+        "key": "49",
+        "value": "1000000"
+      },
+      {
+        "key": "50",
+        "value": "1000000"
+      },
+      {
+        "key": "51",
+        "value": "1000000"
+      },
+      {
+        "key": "52",
+        "value": "1000000"
+      },
+      {
+        "key": "53",
+        "value": "1000000"
+      },
+      {
+        "key": "54",
+        "value": "1000000"
+      },
+      {
+        "key": "55",
+        "value": "1000000"
+      },
+      {
+        "key": "56",
+        "value": "1000000"
+      }
+    ],
+    "recipes": [
+      {
+        "key": "0",
+        "value": {
+          "burn_inputs": false,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "1200",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "400",
+              "token_id": "5"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "2"
+            },
+            {
+              "amount": "1",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "token_id": "3"
+            },
+            {
+              "amount": "1",
+              "token_id": "7"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "16"
+        }
+      },
+      {
+        "key": "1",
+        "value": {
+          "burn_inputs": false,
+          "drops": [],
+          "ingredients": [
+            {
+              "amount": "4",
+              "token_id": "0"
+            },
+            {
+              "amount": "2",
+              "token_id": "11"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "17"
+        }
+      },
+      {
+        "key": "2",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "800",
+              "token_id": "14"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "300",
+              "token_id": "12"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "13"
+            },
+            {
+              "amount": "1",
+              "token_id": "15"
+            },
+            {
+              "amount": "1",
+              "token_id": "5"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "19"
+        }
+      },
+      {
+        "key": "3",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "800",
+              "token_id": "14"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "300",
+              "token_id": "12"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "2",
+              "token_id": "11"
+            },
+            {
+              "amount": "2",
+              "token_id": "8"
+            },
+            {
+              "amount": "1",
+              "token_id": "9"
+            },
+            {
+              "amount": "1",
+              "token_id": "10"
+            },
+            {
+              "amount": "1",
+              "token_id": "12"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "22"
+        }
+      },
+      {
+        "key": "4",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "800",
+              "token_id": "14"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "300",
+              "token_id": "12"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "11"
+            },
+            {
+              "amount": "2",
+              "token_id": "8"
+            },
+            {
+              "amount": "2",
+              "token_id": "3"
+            },
+            {
+              "amount": "1",
+              "token_id": "12"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "23"
+        }
+      },
+      {
+        "key": "5",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "700",
+              "token_id": "21"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "400",
+              "token_id": "6"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "4",
+              "token_id": "8"
+            },
+            {
+              "amount": "1",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "token_id": "4"
+            },
+            {
+              "amount": "1",
+              "token_id": "7"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "24"
+        }
+      },
+      {
+        "key": "6",
+        "value": {
+          "burn_inputs": false,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "900",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "250",
+              "token_id": "30"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "2",
+              "token_id": "26"
+            },
+            {
+              "amount": "1",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "token_id": "3"
+            },
+            {
+              "amount": "1",
+              "token_id": "21"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "27"
+        }
+      },
+      {
+        "key": "7",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "25",
+              "chance_bps": "500",
+              "token_id": "38"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "150",
+              "token_id": "33"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "2",
+              "token_id": "28"
+            },
+            {
+              "amount": "1",
+              "token_id": "32"
+            },
+            {
+              "amount": "1",
+              "token_id": "6"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "29"
+        }
+      },
+      {
+        "key": "8",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "25",
+              "chance_bps": "500",
+              "token_id": "38"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "150",
+              "token_id": "33"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "12",
+              "token_id": "8"
+            },
+            {
+              "amount": "2",
+              "token_id": "24"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "25"
+        }
+      },
+      {
+        "key": "9",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "1000",
+              "token_id": "15"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "300",
+              "token_id": "36"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "15"
+            },
+            {
+              "amount": "2",
+              "token_id": "1"
+            },
+            {
+              "amount": "1",
+              "token_id": "35"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "37"
+        }
+      },
+      {
+        "key": "10",
+        "value": {
+          "burn_inputs": false,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "1200",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "400",
+              "token_id": "5"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "39"
+            },
+            {
+              "amount": "1",
+              "token_id": "5"
+            },
+            {
+              "amount": "1",
+              "token_id": "7"
+            },
+            {
+              "amount": "1",
+              "token_id": "6"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "45"
+        }
+      },
+      {
+        "key": "11",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "800",
+              "token_id": "14"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "300",
+              "token_id": "12"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "2",
+              "token_id": "11"
+            },
+            {
+              "amount": "2",
+              "token_id": "42"
+            },
+            {
+              "amount": "1",
+              "token_id": "43"
+            },
+            {
+              "amount": "1",
+              "token_id": "45"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "46"
+        }
+      },
+      {
+        "key": "12",
+        "value": {
+          "burn_inputs": false,
+          "drops": [],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "0"
+            },
+            {
+              "amount": "1",
+              "token_id": "43"
+            },
+            {
+              "amount": "1",
+              "token_id": "14"
+            },
+            {
+              "amount": "1",
+              "token_id": "6"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "47"
+        }
+      },
+      {
+        "key": "13",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "800",
+              "token_id": "14"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "300",
+              "token_id": "12"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "2",
+              "token_id": "4"
+            },
+            {
+              "amount": "2",
+              "token_id": "43"
+            },
+            {
+              "amount": "1",
+              "token_id": "3"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "48"
+        }
+      },
+      {
+        "key": "14",
+        "value": {
+          "burn_inputs": true,
+          "drops": [],
+          "ingredients": [
+            {
+              "amount": "4",
+              "token_id": "0"
+            },
+            {
+              "amount": "2",
+              "token_id": "8"
+            },
+            {
+              "amount": "1",
+              "token_id": "7"
+            },
+            {
+              "amount": "1",
+              "token_id": "21"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "49"
+        }
+      },
+      {
+        "key": "15",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "800",
+              "token_id": "14"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "300",
+              "token_id": "12"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "11"
+            },
+            {
+              "amount": "2",
+              "token_id": "42"
+            },
+            {
+              "amount": "1",
+              "token_id": "43"
+            },
+            {
+              "amount": "1",
+              "token_id": "45"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "50"
+        }
+      },
+      {
+        "key": "16",
+        "value": {
+          "burn_inputs": false,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "1200",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "400",
+              "token_id": "5"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "10"
+            },
+            {
+              "amount": "2",
+              "token_id": "15"
+            },
+            {
+              "amount": "1",
+              "token_id": "44"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "51"
+        }
+      },
+      {
+        "key": "17",
+        "value": {
+          "burn_inputs": false,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "1200",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "400",
+              "token_id": "5"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "40"
+            },
+            {
+              "amount": "1",
+              "token_id": "6"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "52"
+        }
+      },
+      {
+        "key": "18",
+        "value": {
+          "burn_inputs": false,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "900",
+              "token_id": "6"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "250",
+              "token_id": "30"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "1",
+              "token_id": "30"
+            },
+            {
+              "amount": "2",
+              "token_id": "41"
+            },
+            {
+              "amount": "1",
+              "token_id": "6"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "53"
+        }
+      },
+      {
+        "key": "19",
+        "value": {
+          "burn_inputs": true,
+          "drops": [],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "10"
+            },
+            {
+              "amount": "2",
+              "token_id": "15"
+            },
+            {
+              "amount": "1",
+              "token_id": "44"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "54"
+        }
+      },
+      {
+        "key": "20",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "1",
+              "chance_bps": "800",
+              "token_id": "14"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "300",
+              "token_id": "12"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "3",
+              "token_id": "1"
+            },
+            {
+              "amount": "1",
+              "token_id": "15"
+            },
+            {
+              "amount": "1",
+              "token_id": "44"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "55"
+        }
+      },
+      {
+        "key": "21",
+        "value": {
+          "burn_inputs": true,
+          "drops": [
+            {
+              "amount": "25",
+              "chance_bps": "500",
+              "token_id": "38"
+            },
+            {
+              "amount": "1",
+              "chance_bps": "150",
+              "token_id": "33"
+            }
+          ],
+          "ingredients": [
+            {
+              "amount": "2",
+              "token_id": "55"
+            },
+            {
+              "amount": "1",
+              "token_id": "44"
+            },
+            {
+              "amount": "1",
+              "token_id": "15"
+            }
+          ],
+          "output_amount": "1",
+          "output_token_id": "56"
+        }
+      }
+    ],
+    "legacyAssets": [
+      {
+        "key": "0",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "0",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "1",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "1",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "2",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "2",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "3",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "3",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "4",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "4",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "5",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "5",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "6",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "6",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "7",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "7",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "8",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "8",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "9",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "9",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "10",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "10",
+          "unit_scale": "100"
+        }
+      },
+      {
+        "key": "11",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "11",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "12",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "12",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "13",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "13",
+          "unit_scale": "100000000"
+        }
+      },
+      {
+        "key": "14",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "14",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "15",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "15",
+          "unit_scale": "100000000"
+        }
+      },
+      {
+        "key": "16",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "16",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "17",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "17",
+          "unit_scale": "100000000"
+        }
+      },
+      {
+        "key": "18",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "18",
+          "unit_scale": "100000000"
+        }
+      },
+      {
+        "key": "19",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "19",
+          "unit_scale": "100000000"
+        }
+      },
+      {
+        "key": "20",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "20",
+          "unit_scale": "100000000"
+        }
+      },
+      {
+        "key": "21",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "21",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "22",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "22",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "23",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "23",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "24",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "24",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "25",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "25",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "26",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "26",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "27",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "27",
+          "unit_scale": "100000000"
+        }
+      },
+      {
+        "key": "28",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "28",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "29",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "29",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "30",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "30",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "31",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "31",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "32",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "32",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "33",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "33",
+          "unit_scale": "100000000"
+        }
+      },
+      {
+        "key": "34",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "34",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "35",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "35",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "36",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "36",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "37",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "37",
+          "unit_scale": "1000000"
+        }
+      },
+      {
+        "key": "38",
+        "value": {
+          "contract": "$LEGACY_CONTRACT",
+          "token_id": "38",
+          "unit_scale": "1000000"
+        }
+      }
+    ]
+  }
+}

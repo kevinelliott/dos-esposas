@@ -126,23 +126,22 @@ The administrator controls the `metadata_managers` allowlist through
 
 - Update all three token image URI fields with `update_token_image`
 - Update a token description with `update_token_description`
-- Replace or clear one recipe's drop list with `update_recipe_drops`
 
 Managers cannot grant other managers, change the administrator, mint directly,
-withdraw tez, change a recipe's ingredients/output/burn policy, or change
-legacy Replate mappings. Revoking a manager immediately removes all three
-update powers.
+withdraw tez, change any recipe economics, or change legacy Replate mappings.
+Revoking a manager immediately removes both metadata update powers. Recipe
+ingredients, outputs, burn behavior, and drop tables are immutable so the
+build-pinned policy reviewed before signing cannot drift after origination.
 
-`update_recipe_drops` replaces the complete list atomically. The contract
-accepts zero through eight entries and enforces:
-
-- Every reward token exists
-- Reward token IDs are unique within the recipe
-- Every display-unit amount is positive
-- Every chance is from 1 through 10,000 basis points
-
-The update emits `recipe_drops_updated` with the manager, recipe ID, and new
-drop count.
+The policy digest is deliberately portable across originations; it is not proof
+of who originated a particular contract or what supply was created. A separate
+deployment-manifest v2 is generated only after TzKT indexes the replacement
+origination. It commits to the Shadownet chain ID, origination operation and
+contract address, administrator, every initial ledger and supply row, all token
+metadata, and the immutable policy. The deployer checks that each token's
+initial supply exactly equals the sum of its ledger balances and refuses to
+publish environment configuration when the indexed snapshot differs from the
+compiled storage.
 
 ### Manager commands
 
@@ -160,17 +159,6 @@ synchronize all saved descriptions:
 npm run testnet:metadata -- description 16 "New Guacamole description"
 npm run testnet:metadata -- descriptions sync
 ```
-
-Drop specifications use `token-id-or-slug:amount:chance-bps`. This example gives
-recipe 0 two independent rolls, at 12.00% and 4.00%:
-
-```bash
-npm run testnet:metadata -- drops set 0 lime:1:1200 jalapenos:1:400
-npm run testnet:metadata -- drops clear 0
-```
-
-The CLI rejects duplicate reward types, more than eight drops, invalid amounts,
-and invalid basis-point chances before sending an operation.
 
 ## Event data
 
@@ -211,7 +199,7 @@ SHADOWNET_PRIVATE_KEY="edsk..." npm run testnet:deploy
 ```
 
 The scenario verifies manager permissions and revocation, description updates,
-drop validation, two simultaneous guaranteed rewards, reserve transfers,
-reduced supply for burn actions, the global nonce, and the maximum batch size.
+the compiled recipe/drop policy, reserve transfers, reduced supply for burn
+actions, the global nonce, and the maximum batch size.
 The compiled artifact includes these mechanics only after a successful
 recompilation.

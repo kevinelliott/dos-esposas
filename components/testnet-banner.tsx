@@ -40,7 +40,7 @@ export function TestnetBanner({
   const [phase, setPhase] = useState<ClaimPhase>("idle");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [receipt, setReceipt] = useState<{
-    state: "pending" | "success" | "error";
+    state: "pending" | "submitted" | "success" | "error";
     title: string;
     detail: string;
     hash?: string;
@@ -78,13 +78,15 @@ export function TestnetBanner({
         undefined,
       );
       setPhase("dispensing");
-      setNotice("Claim accepted. Stocking your pixel pantry...");
+      setNotice(
+        "Starter claim submitted. Waiting for applied chain confirmation...",
+      );
       await actionDelay(interfaceTimings.claimDispense);
       setNotice(`Starter claim submitted: ${hash}`);
       setReceipt({
-        state: "success",
+        state: "submitted",
         title: "Starter manifest submitted",
-        detail: `${catalogItems.length} asset types are being indexed for this wallet.`,
+        detail: `${catalogItems.length} asset types were requested. The activity center will verify that the claim applies.`,
         hash,
       });
       window.setTimeout(onClaimed, 6000);

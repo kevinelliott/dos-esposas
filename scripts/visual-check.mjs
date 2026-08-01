@@ -70,6 +70,134 @@ async function checkKitchenAction(page, recipeName, action) {
   );
 }
 
+async function checkKitchenOrderRail(page) {
+  const rail = page.locator(".kitchen-order-rail");
+  const readiness = rail.getByText("Readiness");
+  const custody = rail.getByText("Custody");
+  const primaryAction = rail.locator(".button--primary");
+  await rail.waitFor();
+  await readiness.waitFor();
+  await custody.waitFor();
+
+  const actionBox = await primaryAction.boundingBox();
+  if (
+    !actionBox ||
+    actionBox.y < 0 ||
+    actionBox.y + actionBox.height > (page.viewportSize()?.height ?? 0)
+  ) {
+    throw new Error("desktop kitchen primary action is outside the first viewport");
+  }
+}
+
+async function checkActivityKeyboard(page) {
+  const trigger = page.getByRole("button", { name: /Operation activity/ });
+  await trigger.click();
+  const close = page.getByRole("button", {
+    name: "Close operation activity",
+  });
+  await close.waitFor();
+  if (!(await close.evaluate((element) => element === document.activeElement))) {
+    throw new Error("activity panel did not move focus to its close control");
+  }
+  await page.keyboard.press("Escape");
+  if (!(await trigger.evaluate((element) => element === document.activeElement))) {
+    throw new Error("activity panel did not restore trigger focus after Escape");
+  }
+}
+
+async function checkMinimumTargets(page, selector, name) {
+  const undersized = await page.locator(selector).evaluateAll((elements) =>
+    elements
+      .filter((element) => {
+        const style = window.getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        return (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          (box.width < 44 || box.height < 44)
+        );
+      })
+      .map((element) => {
+        const box = element.getBoundingClientRect();
+        return `${element.tagName.toLowerCase()} ${element.textContent?.trim() ?? ""} (${Math.round(box.width)}x${Math.round(box.height)})`;
+      }),
+  );
+  if (undersized.length > 0) {
+    throw new Error(`${name} has undersized targets: ${undersized.join(", ")}`);
+  }
+}
+
+async function checkAssetMetricCard(page, network, name) {
+  const strip = page.locator(".inventory-card__stock-strip").first();
+  await strip.waitFor();
+  if ((await strip.locator(":scope > span").count()) !== 3) {
+    throw new Error(`${name} does not expose three supply cells`);
+  }
+  const minimumFont = await strip.locator("small, b").evaluateAll((elements) =>
+    Math.min(...elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize))),
+  );
+  if (minimumFont < 11) {
+    throw new Error(`${name} supply text falls below 11px`);
+  }
+  if (network === "mainnet" && (await strip.innerText()).includes("—")) {
+    throw new Error(`${name} did not load sourced mainnet supply values`);
+  }
+}
+
+async function checkAssetLedger(page, network, name) {
+  const ledger = page.locator(".asset-ledger");
+  await ledger.waitFor();
+  const expectedCells = network === "mainnet" ? 4 : 3;
+  if ((await ledger.locator(".asset-ledger__rail > div").count()) !== expectedCells) {
+    throw new Error(`${name} does not expose ${expectedCells} primary ledger cells`);
+  }
+  const actions = page.locator(".detail-actions");
+  const [actionBox, ledgerBox] = await Promise.all([
+    actions.boundingBox(),
+    ledger.boundingBox(),
+  ]);
+  if (!actionBox || !ledgerBox || actionBox.y >= ledgerBox.y) {
+    throw new Error(`${name} puts analytics before the primary action`);
+  }
+  if (network === "mainnet") {
+    await ledger.getByText("Best-effort current").waitFor();
+    await ledger.getByText("1,664.696297 AVO").waitFor();
+  } else {
+    await ledger.getByText("Not reported").first().waitFor();
+  }
+}
+
+async function checkAssetLoadingStability(browser, width, height, network) {
+  const page = await browser.newPage({ viewport: { width, height } });
+  observe(page);
+  await page.route("**/api/asset-metrics", async (route) => {
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 1_800));
+    await route.fulfill({ response });
+  });
+  await page.goto(`${baseUrl}/items/avocado`);
+  const ledger = page.locator(".asset-ledger");
+  await ledger.waitFor();
+  const loadingHeight = (await ledger.boundingBox())?.height ?? 0;
+  if ((await ledger.getAttribute("aria-busy")) !== "true") {
+    throw new Error(`${width}px ${network} asset ledger skipped its loading state`);
+  }
+  await page.waitForFunction(
+    () => document.querySelector(".asset-ledger")?.getAttribute("aria-busy") === "false",
+    undefined,
+    { timeout: 10_000 },
+  );
+  const settledHeight = (await ledger.boundingBox())?.height ?? 0;
+  const heightDelta = Math.abs(settledHeight - loadingHeight);
+  if (heightDelta > 80) {
+    throw new Error(
+      `${width}px ${network} asset ledger shifted ${Math.round(heightDelta)}px while loading evidence`,
+    );
+  }
+  await checkPage(page, `${width}px delayed asset ledger`);
+  await page.close();
+}
+
 function observe(page) {
   page.on("console", (message) => {
     if (
@@ -117,12 +245,13 @@ try {
 
   await desktop.goto(`${baseUrl}/menu`);
   await settle(desktop);
-  await desktop.getByRole("tab", { name: "Drinks" }).click();
+  await desktop.getByRole("button", { name: "Drinks" }).click();
   await desktop.getByPlaceholder("Search drinks").fill("margarita");
   await desktop
     .getByRole("heading", { name: "Premium Margarita" })
     .waitFor();
   await settle(desktop);
+  await checkAssetMetricCard(desktop, network, "desktop catalog");
   await checkPage(desktop, "desktop catalog");
   await desktop.screenshot({
     path: "/private/tmp/dos-esposas-catalog.png",
@@ -184,6 +313,15 @@ try {
 
   await desktop.goto(`${baseUrl}/kitchen`);
   await desktop.getByRole("heading", { name: "Pixel kitchen" }).waitFor();
+  await settle(desktop);
+  await checkKitchenOrderRail(desktop);
+  const currentKitchenLink = desktop.locator(
+    '.site-header__nav a[href="/kitchen"][aria-current="page"]',
+  );
+  if ((await currentKitchenLink.count()) !== 1) {
+    throw new Error("desktop kitchen navigation does not expose aria-current");
+  }
+  await checkActivityKeyboard(desktop);
   await checkKitchenAction(desktop, "Table Guacamole", "Blend");
   await checkKitchenAction(desktop, "Fresh Tortilla Chips", "Combine");
   await checkKitchenAction(desktop, "Loaded Burrito", "Cook");
@@ -258,13 +396,14 @@ try {
     fullPage: true,
   });
 
-  await desktop.goto(`${baseUrl}/items/guacamole`);
-  await desktop.getByRole("heading", { name: "Guacamole" }).waitFor();
+  await desktop.goto(`${baseUrl}/items/avocado`);
+  await desktop.getByRole("heading", { name: "Avocado" }).waitFor();
   await desktop.getByText("On-chain identity").waitFor();
   await settle(desktop);
+  await checkAssetLedger(desktop, network, "desktop item detail");
   await checkPage(desktop, "desktop item detail");
   await desktop.screenshot({
-    path: "/private/tmp/dos-esposas-guacamole.png",
+    path: "/private/tmp/dos-esposas-avocado.png",
     fullPage: true,
   });
 
@@ -283,6 +422,17 @@ try {
   await mobile
     .getByRole("navigation", { name: "Mobile navigation" })
     .waitFor();
+  if (
+    (await mobile.locator('.mobile-game-bar a[aria-current="page"]').count()) !==
+    1
+  ) {
+    throw new Error("mobile game bar does not expose one current page");
+  }
+  await checkMinimumTargets(
+    mobile,
+    ".kitchen-order-rail button, .recipe-browser__head button, .recipe-browser__head select, .activity-center__trigger, .mobile-nav a, .mobile-game-bar a, .testnet-journey a, .testnet-journey button",
+    "mobile kitchen",
+  );
   await settle(mobile);
   await checkPage(mobile, "mobile kitchen");
   await mobile.screenshot({
@@ -310,6 +460,21 @@ try {
     fullPage: true,
   });
 
+  await mobile.goto(`${baseUrl}/menu`);
+  await settle(mobile);
+  await checkAssetMetricCard(mobile, network, "mobile catalog");
+  await checkPage(mobile, "mobile catalog metrics");
+
+  await mobile.goto(`${baseUrl}/items/avocado`);
+  await mobile.getByRole("heading", { name: "Avocado" }).waitFor();
+  await settle(mobile);
+  await checkAssetLedger(mobile, network, "mobile item detail");
+  await checkPage(mobile, "mobile item detail metrics");
+  await mobile.screenshot({
+    path: "/private/tmp/dos-esposas-mobile-asset-ledger.png",
+    fullPage: true,
+  });
+
   if (network === "shadownet") {
     await mobile.goto(`${baseUrl}/forge`);
     await mobile.getByRole("heading", { name: "Asset forge" }).waitFor();
@@ -321,12 +486,73 @@ try {
     });
   }
 
+  const narrowMobile = await browser.newPage({
+    viewport: { width: 320, height: 568 },
+  });
+  observe(narrowMobile);
+  await narrowMobile.goto(`${baseUrl}/kitchen`);
+  await narrowMobile
+    .getByRole("heading", { name: "Pixel kitchen" })
+    .waitFor();
+  await narrowMobile.getByRole("button", { name: "Open menu" }).click();
+  await narrowMobile
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .waitFor();
+  await checkMinimumTargets(
+    narrowMobile,
+    ".kitchen-order-rail button, .recipe-browser__head button, .recipe-browser__head select, .activity-center__trigger, .mobile-nav a, .mobile-game-bar a, .testnet-journey a, .testnet-journey button",
+    "320px mobile kitchen",
+  );
+  await checkPage(narrowMobile, "320px mobile kitchen");
+  await narrowMobile.goto(`${baseUrl}/menu`);
+  await settle(narrowMobile);
+  await checkAssetMetricCard(narrowMobile, network, "320px catalog");
+  await checkPage(narrowMobile, "320px catalog metrics");
+  await narrowMobile.goto(`${baseUrl}/items/avocado`);
+  await narrowMobile.getByRole("heading", { name: "Avocado" }).waitFor();
+  await settle(narrowMobile);
+  await checkAssetLedger(narrowMobile, network, "320px item detail");
+  await checkPage(narrowMobile, "320px item detail metrics");
+  await narrowMobile.close();
+
+  await checkAssetLoadingStability(browser, 390, 844, network);
+  await checkAssetLoadingStability(browser, 320, 700, network);
+
+  const reducedMotion = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
+  });
+  observe(reducedMotion);
+  await reducedMotion.goto(`${baseUrl}/kitchen`);
+  await reducedMotion.getByRole("heading", { name: "Pixel kitchen" }).waitFor();
+  await reducedMotion
+    .getByRole("button", { name: "Recheck ingredients" })
+    .click();
+  const reducedStatus = reducedMotion.locator(
+    '.kitchen-operation__status[data-phase="preview"]',
+  );
+  await reducedStatus.waitFor();
+  const reducedAnimations = await reducedMotion
+    .locator(".kitchen-action-scene")
+    .evaluate(
+      (scene) =>
+        scene
+          .getAnimations({ subtree: true })
+          .filter((animation) => animation.playState === "running").length,
+    );
+  if (reducedAnimations !== 0) {
+    throw new Error(
+      `reduced-motion kitchen still has ${reducedAnimations} running animations`,
+    );
+  }
+  await reducedMotion.close();
+
   if (errors.length > 0) {
     throw new Error(`Browser console errors:\n${[...new Set(errors)].join("\n")}`);
   }
 
   console.log(
-    `UI smoke check passed on ${network}: pantry, catalog filtering, market, asset forge, kitchen recipes, conversion metrics, replate conversion, item details, trades, mobile navigation, images, console, and overflow.`,
+    `UI smoke check passed on ${network}: pantry, catalog filtering, asset supply metrics, market, asset forge, kitchen recipes, conversion metrics, replate conversion, item details, trades, mobile navigation, images, console, and overflow.`,
   );
 } finally {
   await browser.close();

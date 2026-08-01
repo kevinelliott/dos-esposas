@@ -2,6 +2,15 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { InMemorySigner } from "@taquito/signer";
 import { TezosToolkit } from "@taquito/taquito";
+import { Schema } from "@taquito/michelson-encoder";
+import {
+  createDeploymentManifest,
+  hashDeploymentManifest,
+} from "../lib/deployment-manifest.ts";
+import {
+  hashContractPolicy,
+} from "../lib/contract-policy.ts";
+import { readTzktDeploymentManifest } from "../lib/tzkt-deployment.ts";
 import { syncTestnetDescriptions } from "./lib/sync-testnet-descriptions.mjs";
 
 const RPC_URL =
@@ -11,6 +20,7 @@ const EXPECTED_CHAIN_ID = "NetXsqzbfFenSTS";
 const PLACEHOLDER_ADMIN = "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb";
 const PLACEHOLDER_LEGACY = "KT1SeR63WtS4m3BPjmsQwNuCNPSi6Pc5aHhm";
 const FAUCET_URL = "https://faucet.shadownet.teztnets.com";
+const TZKT_API_URL = "https://api.shadownet.tzkt.io";
 const ORIGINATION_GAS_LIMIT = 350_000;
 const ORIGINATION_STORAGE_LIMIT = 60_000;
 const ORIGINATION_FEE = 100_000;
@@ -145,7 +155,14 @@ async function originateContract(tezos, label, code, storage) {
     60_000,
   );
   console.log(`${label} confirmed: ${contractAddress}`);
-  return contractAddress;
+  return { address: contractAddress, operationHash: operation.hash };
+}
+
+function mapEntries(map) {
+  if (!map || typeof map.entries !== "function") {
+    throw new Error("Decoded origination storage contains an invalid map.");
+  }
+  return [...map.entries()].map(([key, value]) => ({ key, value }));
 }
 
 const signer = await InMemorySigner.fromSecretKey(secretKey);
@@ -183,6 +200,12 @@ const legacyCode = JSON.parse(
 const legacyInitialStorage = JSON.parse(
   readFileSync(resolve("contracts/testnet/build/legacy-storage.json"), "utf8"),
 );
+const policyManifest = JSON.parse(
+  readFileSync(
+    resolve("contracts/testnet/build/policy-manifest.json"),
+    "utf8",
+  ),
+);
 
 let managerKey = await tezos.rpc.getManagerKey(address);
 for (let attempt = 1; !managerKey && attempt <= 3; attempt += 1) {
@@ -219,12 +242,13 @@ const legacyStorage = replaceAddresses(
   legacyInitialStorage,
   new Map([[PLACEHOLDER_ADMIN, address]]),
 );
-const legacyContractAddress = await originateContract(
+const legacyOrigination = await originateContract(
   tezos,
   "Dos Esposas legacy rehearsal assets",
   legacyCode,
   legacyStorage,
 );
+const legacyContractAddress = legacyOrigination.address;
 const replacementStorage = replaceAddresses(
   replacementInitialStorage,
   new Map([
@@ -232,11 +256,89 @@ const replacementStorage = replaceAddresses(
     [PLACEHOLDER_LEGACY, legacyContractAddress],
   ]),
 );
-const contractAddress = await originateContract(
+const replacementOrigination = await originateContract(
   tezos,
   "Dos Esposas replacement assets",
   replacementCode,
   replacementStorage,
+);
+const contractAddress = replacementOrigination.address;
+
+let indexedContract = null;
+const indexed = await waitForState(
+  async () => {
+    const response = await fetch(
+      `${TZKT_API_URL}/v1/contracts/${contractAddress}`,
+      { headers: { accept: "application/json" } },
+    );
+    if (!response.ok) return false;
+    const record = await response.json();
+    if (record.address !== contractAddress || record.codeHash === undefined) {
+      return false;
+    }
+    indexedContract = record;
+    return true;
+  },
+  300_000,
+);
+if (!indexed || !indexedContract) {
+  throw new Error(
+    "TzKT did not index the replacement contract within five minutes, so no app configuration was written.",
+  );
+}
+const contractCodeHash = String(indexedContract.codeHash);
+
+if (
+  hashContractPolicy(policyManifest.policy) !== policyManifest.sha256
+) {
+  throw new Error("The compiled policy manifest digest is invalid.");
+}
+const storageType = replacementCode.find(
+  (section) => section.prim === "storage",
+)?.args?.[0];
+if (!storageType) {
+  throw new Error("Compiled replacement contract has no storage type.");
+}
+const decodedExpectedStorage = new Schema(storageType).Execute(
+  replacementStorage,
+);
+const expectedDeploymentManifest = createDeploymentManifest({
+  chainId,
+  originationOperation: replacementOrigination.operationHash,
+  contractAddress,
+  administrator: decodedExpectedStorage.administrator,
+  ledger: mapEntries(decodedExpectedStorage.ledger),
+  supply: mapEntries(decodedExpectedStorage.supply),
+  tokenMetadata: mapEntries(decodedExpectedStorage.token_metadata),
+  policy: policyManifest.policy,
+});
+const { manifest: deploymentManifest } = await readTzktDeploymentManifest({
+  apiUrl: TZKT_API_URL,
+  chainId,
+  contractAddress,
+  operationHash: replacementOrigination.operationHash,
+  expectedPolicy: policyManifest.policy,
+  expectedLegacyContract: legacyContractAddress,
+});
+const expectedDeploymentHash = hashDeploymentManifest(
+  expectedDeploymentManifest,
+);
+const deploymentManifestHash = hashDeploymentManifest(deploymentManifest);
+if (deploymentManifestHash !== expectedDeploymentHash) {
+  throw new Error(
+    "Indexed origination authority, ledger, supply, or token metadata does not match the reviewed deployment.",
+  );
+}
+writeFileSync(
+  resolve("contracts/testnet/build/deployment-manifest.json"),
+  `${JSON.stringify(
+    { sha256: deploymentManifestHash, manifest: deploymentManifest },
+    null,
+    2,
+  )}\n`,
+);
+console.log(
+  `Verified and wrote deployment manifest v2 (${deploymentManifestHash}).`,
 );
 
 const env = [
@@ -244,6 +346,9 @@ const env = [
   'NEXT_PUBLIC_TEZOS_NETWORK="shadownet"',
   `NEXT_PUBLIC_TEZOS_RPC_URL="${RPC_URL}"`,
   `NEXT_PUBLIC_TESTNET_ASSET_CONTRACT="${contractAddress}"`,
+  `NEXT_PUBLIC_TESTNET_CONTRACT_CODE_HASH="${contractCodeHash}"`,
+  `NEXT_PUBLIC_TESTNET_POLICY_HASH="${policyManifest.sha256}"`,
+  `NEXT_PUBLIC_TESTNET_DEPLOYMENT_MANIFEST_HASH="${deploymentManifestHash}"`,
   `NEXT_PUBLIC_TESTNET_LEGACY_CONTRACT="${legacyContractAddress}"`,
   `NEXT_PUBLIC_TESTNET_SYSTEM_WALLET="${address}"`,
   `NEXT_PUBLIC_MARKETPLACE_CONTRACT="${contractAddress}"`,
@@ -251,13 +356,6 @@ const env = [
   `NEXT_PUBLIC_MIGRATION_CONTRACT="${contractAddress}"`,
   "",
 ].join("\n");
-
-writeFileSync(resolve(".env.shadownet.local"), env, {
-  encoding: "utf8",
-  mode: 0o600,
-});
-
-console.log("Wrote .env.shadownet.local.");
 
 console.log("Synchronizing all 57 replacement asset descriptions...");
 const deployedContract = await tezos.contract.at(contractAddress);
@@ -270,4 +368,11 @@ await syncTestnetDescriptions({
     console.log(`Description batch ${range} confirmed.`),
 });
 
-console.log("Shadownet metadata synchronized. Start with: npm run dev:testnet");
+writeFileSync(resolve(".env.shadownet.local"), env, {
+  encoding: "utf8",
+  mode: 0o600,
+});
+
+console.log(
+  "Shadownet metadata synchronized and .env.shadownet.local written. Start with: npm run dev:testnet",
+);

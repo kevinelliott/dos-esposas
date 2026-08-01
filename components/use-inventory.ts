@@ -7,7 +7,10 @@ import type {
 } from "@/lib/inventory-types";
 
 export function useInventory(account: string) {
-  const [balances, setBalances] = useState<InventoryBalance[]>([]);
+  const [snapshot, setSnapshot] = useState<{
+    account: string;
+    balances: InventoryBalance[];
+  }>({ account: "", balances: [] });
   const [loading, setLoading] = useState(Boolean(account));
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -24,12 +27,18 @@ export function useInventory(account: string) {
 
   useEffect(() => {
     if (!account) {
+      queueMicrotask(() => {
+        setSnapshot({ account: "", balances: [] });
+        setLoading(false);
+        setError("");
+      });
       return;
     }
 
     const controller = new AbortController();
     queueMicrotask(() => {
       if (!controller.signal.aborted) {
+        setSnapshot({ account, balances: [] });
         setLoading(true);
         setError("");
       }
@@ -47,7 +56,10 @@ export function useInventory(account: string) {
             "error" in payload ? payload.error : "Inventory lookup failed.",
           );
         }
-        setBalances(payload.balances);
+        if (payload.account !== account) {
+          throw new Error("Inventory response did not match the active account.");
+        }
+        setSnapshot({ account, balances: payload.balances });
       })
       .catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -63,7 +75,7 @@ export function useInventory(account: string) {
   const refresh = useCallback(() => setRefreshKey((value) => value + 1), []);
 
   return {
-    balances: account ? balances : [],
+    balances: account && snapshot.account === account ? snapshot.balances : [],
     loading: account ? loading : false,
     error: account ? error : "",
     refresh,

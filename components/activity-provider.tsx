@@ -9,43 +9,28 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  interruptPreparingActivities,
+  isWalletAccount,
+  milestonesForAccount,
+  parseActivityLog,
+  parseJourneyProgress,
+  recordInspectedCraftReceipt,
+  serializeActivityLog,
+  serializeJourneyProgress,
+  type ActivityKind,
+  type JourneyMilestone,
+  type JourneyProgress,
+  type WalletActivity,
+} from "@/lib/activity-log";
 import { networkConfig } from "@/lib/network";
 
-export type ActivityKind =
-  | "claim"
-  | "purchase"
-  | "craft"
-  | "offer"
-  | "delivery"
-  | "replate"
-  | "forge"
-  | "transaction";
-
-export type ActivityStatus =
-  | "pending"
-  | "submitted"
-  | "confirmed"
-  | "failed";
-
-export type WalletActivity = {
-  id: string;
-  kind: ActivityKind;
-  title: string;
-  detail: string;
-  status: ActivityStatus;
-  createdAt: string;
-  updatedAt: string;
-  href: string;
-  hash?: string;
-  error?: string;
-};
-
-export type JourneyMilestone =
-  | "starter"
-  | "purchase"
-  | "craft"
-  | "offer"
-  | "receipt";
+export type {
+  ActivityKind,
+  ActivityStatus,
+  JourneyMilestone,
+  WalletActivity,
+} from "@/lib/activity-log";
 
 type StartActivity = Pick<WalletActivity, "kind" | "title" | "detail"> & {
   href?: string;
@@ -55,16 +40,18 @@ type ActivityContextValue = {
   activities: WalletActivity[];
   milestones: JourneyMilestone[];
   hydrated: boolean;
+  setActiveAccount: (account: string) => void;
   startActivity: (activity: StartActivity) => string;
   submitActivity: (id: string, hash?: string) => void;
   failActivity: (id: string, error: string) => void;
   markMilestone: (milestone: JourneyMilestone) => void;
+  inspectReceipt: (activity: WalletActivity) => void;
   clearSettled: () => void;
   removeActivity: (id: string) => void;
 };
 
-const STORAGE_KEY = `dos-esposas-activity-${networkConfig.id}-v1`;
-const MILESTONE_KEY = `dos-esposas-journey-${networkConfig.id}-v1`;
+const STORAGE_KEY = `dos-esposas-activity-${networkConfig.id}-v2`;
+const MILESTONE_KEY = `dos-esposas-journey-${networkConfig.id}-v2`;
 const ActivityContext = createContext<ActivityContextValue | null>(null);
 
 function currentHref() {
@@ -72,109 +59,193 @@ function currentHref() {
   return `${window.location.pathname}${window.location.search}`;
 }
 
+function persistActivities(activities: WalletActivity[]) {
+  window.localStorage.setItem(STORAGE_KEY, serializeActivityLog(activities));
+}
+
+function persistProgress(progress: JourneyProgress) {
+  window.localStorage.setItem(
+    MILESTONE_KEY,
+    serializeJourneyProgress(progress),
+  );
+}
+
 export function ActivityProvider({ children }: { children: React.ReactNode }) {
-  const [activities, setActivities] = useState<WalletActivity[]>([]);
-  const [milestones, setMilestones] = useState<JourneyMilestone[]>([]);
+  const [allActivities, setAllActivities] = useState<WalletActivity[]>([]);
+  const [progress, setProgress] = useState<JourneyProgress>({});
+  const [activeAccount, setActiveAccountState] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const activeAccountRef = useRef("");
   const activityKinds = useRef(new Map<string, ActivityKind>());
+
+  const setActiveAccount = useCallback((account: string) => {
+    const normalized = isWalletAccount(account) ? account : "";
+    activeAccountRef.current = normalized;
+    setActiveAccountState(normalized);
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
-      try {
-        const savedActivities = window.localStorage.getItem(STORAGE_KEY);
-        const savedMilestones = window.localStorage.getItem(MILESTONE_KEY);
-        if (savedActivities) {
-          const restored = (
-            JSON.parse(savedActivities) as WalletActivity[]
-          ).slice(0, 40);
-          restored.forEach((activity) =>
-            activityKinds.current.set(activity.id, activity.kind),
-          );
-          setActivities(restored);
-        }
-        if (savedMilestones) {
-          setMilestones(JSON.parse(savedMilestones) as JourneyMilestone[]);
-        }
-      } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
-        window.localStorage.removeItem(MILESTONE_KEY);
+      const restored = interruptPreparingActivities(
+        parseActivityLog(window.localStorage.getItem(STORAGE_KEY)),
+      );
+      restored.forEach((activity) =>
+        activityKinds.current.set(activity.id, activity.kind),
+      );
+      setAllActivities(restored);
+      setProgress(
+        parseJourneyProgress(window.localStorage.getItem(MILESTONE_KEY)),
+      );
+      if (restored.some((activity) => activity.status === "interrupted")) {
+        persistActivities(restored);
       }
       setHydrated(true);
     });
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(activities));
-  }, [activities, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(MILESTONE_KEY, JSON.stringify(milestones));
-  }, [hydrated, milestones]);
-
-  const markMilestone = useCallback((milestone: JourneyMilestone) => {
-    setMilestones((current) =>
-      current.includes(milestone) ? current : [...current, milestone],
-    );
+    const sync = (event: StorageEvent) => {
+      if (event.storageArea !== window.localStorage) return;
+      if (event.key === STORAGE_KEY) {
+        const restored = parseActivityLog(event.newValue);
+        restored.forEach((activity) =>
+          activityKinds.current.set(activity.id, activity.kind),
+        );
+        setAllActivities(restored);
+      }
+      if (event.key === MILESTONE_KEY) {
+        setProgress(parseJourneyProgress(event.newValue));
+      }
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
   }, []);
 
-  const startActivity = useCallback((activity: StartActivity) => {
-    const now = new Date().toISOString();
-    const id = crypto.randomUUID();
-    activityKinds.current.set(id, activity.kind);
-    setActivities((current) =>
-      [
+  const activities = useMemo(
+    () =>
+      activeAccount
+        ? allActivities.filter(
+            (activity) => activity.account === activeAccount,
+          )
+        : [],
+    [activeAccount, allActivities],
+  );
+  const milestones = useMemo(
+    () => milestonesForAccount(progress, activeAccount),
+    [activeAccount, progress],
+  );
+
+  const updateActivities = useCallback(
+    (update: (current: WalletActivity[]) => WalletActivity[]) => {
+      setAllActivities((current) => {
+        const next = update(current).slice(0, 40);
+        persistActivities(next);
+        return next;
+      });
+    },
+    [],
+  );
+
+  const markMilestone = useCallback((milestone: JourneyMilestone) => {
+    if (milestone === "receipt") return;
+    const account = activeAccountRef.current;
+    if (!account) return;
+    setProgress((current) => {
+      const accountProgress = current[account] ?? { milestones: [] };
+      const accountMilestones = accountProgress.milestones;
+      if (accountMilestones.includes(milestone)) return current;
+      const next = {
+        ...current,
+        [account]: {
+          ...accountProgress,
+          milestones: [...accountMilestones, milestone],
+        },
+      };
+      persistProgress(next);
+      return next;
+    });
+  }, []);
+
+  const inspectReceipt = useCallback((activity: WalletActivity) => {
+    const account = activeAccountRef.current;
+    if (!account) return;
+    setProgress((current) => {
+      const next = recordInspectedCraftReceipt(current, account, activity);
+      if (next !== current) persistProgress(next);
+      return next;
+    });
+  }, []);
+
+  const startActivity = useCallback(
+    (activity: StartActivity) => {
+      const account = activeAccountRef.current;
+      if (!account) {
+        throw new Error(
+          "Connect the wallet account before starting an operation.",
+        );
+      }
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+      activityKinds.current.set(id, activity.kind);
+      updateActivities((current) => [
         {
           ...activity,
           id,
+          account,
           href: activity.href ?? currentHref(),
           status: "pending" as const,
           createdAt: now,
           updatedAt: now,
         },
         ...current,
-      ].slice(0, 40),
-    );
-    return id;
-  }, []);
+      ]);
+      return id;
+    },
+    [updateActivities],
+  );
 
   const submitActivity = useCallback(
     (id: string, hash?: string) => {
       const kind = activityKinds.current.get(id);
-      setActivities((current) =>
-        current.map((activity) => {
-          if (activity.id !== id) return activity;
-          return {
-            ...activity,
-            hash,
-            status: hash ? "submitted" : "confirmed",
-            updatedAt: new Date().toISOString(),
-          };
-        }),
+      updateActivities((current) =>
+        current.map((activity) =>
+          activity.id === id
+            ? {
+                ...activity,
+                hash,
+                status: hash ? "submitted" : "confirmed",
+                updatedAt: new Date().toISOString(),
+              }
+            : activity,
+        ),
       );
-      if (kind === "claim") markMilestone("starter");
-      if (kind === "purchase" || kind === "craft" || kind === "offer") {
-        markMilestone(kind);
+      if (!hash) {
+        if (kind === "claim") markMilestone("starter");
+        if (kind === "purchase" || kind === "craft" || kind === "offer") {
+          markMilestone(kind);
+        }
       }
     },
-    [markMilestone],
+    [markMilestone, updateActivities],
   );
 
-  const failActivity = useCallback((id: string, error: string) => {
-    setActivities((current) =>
-      current.map((activity) =>
-        activity.id === id
-          ? {
-              ...activity,
-              error,
-              status: "failed",
-              updatedAt: new Date().toISOString(),
-            }
-          : activity,
-      ),
-    );
-  }, []);
+  const failActivity = useCallback(
+    (id: string, error: string) => {
+      updateActivities((current) =>
+        current.map((activity) =>
+          activity.id === id
+            ? {
+                ...activity,
+                error,
+                status: "failed",
+                updatedAt: new Date().toISOString(),
+              }
+            : activity,
+        ),
+      );
+    },
+    [updateActivities],
+  );
 
   useEffect(() => {
     const pending = activities.filter(
@@ -182,39 +253,78 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
     );
     if (pending.length === 0) return;
     let cancelled = false;
+    let checking = false;
 
     const checkConfirmations = async () => {
-      await Promise.all(
-        pending.map(async (activity) => {
-          try {
-            const response = await fetch(
-              `/api/operation?hash=${encodeURIComponent(activity.hash!)}`,
-              { cache: "no-store" },
-            );
-            if (!response.ok) return;
-            const result = (await response.json()) as { confirmed: boolean };
-            if (!result.confirmed || cancelled) return;
-            setActivities((current) =>
-              current.map((candidate) =>
-                candidate.id === activity.id
-                  ? {
-                      ...candidate,
-                      status: "confirmed",
-                      updatedAt: new Date().toISOString(),
-                    }
-                  : candidate,
-              ),
-            );
-            window.dispatchEvent(
-              new CustomEvent("dos-esposas:activity-confirmed", {
-                detail: { id: activity.id, kind: activity.kind },
-              }),
-            );
-          } catch {
-            // Indexer polling is best-effort; submitted operations stay visible.
-          }
-        }),
-      );
+      if (checking || document.visibilityState === "hidden") return;
+      checking = true;
+      try {
+        await Promise.all(
+          pending.map(async (activity) => {
+            try {
+              const response = await fetch(
+                `/api/operation?hash=${encodeURIComponent(activity.hash!)}`,
+                { cache: "no-store" },
+              );
+              if (!response.ok) return;
+              const result = (await response.json()) as {
+                state: "pending" | "applied" | "failed";
+                error?: string;
+              };
+              if (cancelled || result.state === "pending") return;
+              if (result.state === "failed") {
+                window.dispatchEvent(
+                  new CustomEvent("dos-esposas:activity-failed", {
+                    detail: {
+                      id: activity.id,
+                      kind: activity.kind,
+                      hash: activity.hash,
+                      error: result.error,
+                    },
+                  }),
+                );
+                failActivity(
+                  activity.id,
+                  result.error ?? "The Tezos operation failed on-chain.",
+                );
+                return;
+              }
+              updateActivities((current) =>
+                current.map((candidate) =>
+                  candidate.id === activity.id
+                    ? {
+                        ...candidate,
+                        status: "confirmed",
+                        updatedAt: new Date().toISOString(),
+                      }
+                    : candidate,
+                ),
+              );
+              window.dispatchEvent(
+                new CustomEvent("dos-esposas:activity-confirmed", {
+                  detail: {
+                    id: activity.id,
+                    kind: activity.kind,
+                    hash: activity.hash,
+                  },
+                }),
+              );
+              if (activity.kind === "claim") markMilestone("starter");
+              if (
+                activity.kind === "purchase" ||
+                activity.kind === "craft" ||
+                activity.kind === "offer"
+              ) {
+                markMilestone(activity.kind);
+              }
+            } catch {
+              // Indexer polling is best-effort; submitted operations stay visible.
+            }
+          }),
+        );
+      } finally {
+        checking = false;
+      }
     };
 
     void checkConfirmations();
@@ -223,33 +333,46 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [activities]);
+  }, [
+    activities,
+    failActivity,
+    markMilestone,
+    updateActivities,
+  ]);
 
   const clearSettled = useCallback(() => {
-    setActivities((current) =>
+    const account = activeAccountRef.current;
+    updateActivities((current) =>
       current.filter(
         (activity) =>
-          activity.status === "pending" || activity.status === "submitted",
+          activity.account !== account ||
+          activity.status === "pending" ||
+          activity.status === "submitted",
       ),
     );
-  }, []);
+  }, [updateActivities]);
 
-  const removeActivity = useCallback((id: string) => {
-    activityKinds.current.delete(id);
-    setActivities((current) =>
-      current.filter((activity) => activity.id !== id),
-    );
-  }, []);
+  const removeActivity = useCallback(
+    (id: string) => {
+      activityKinds.current.delete(id);
+      updateActivities((current) =>
+        current.filter((activity) => activity.id !== id),
+      );
+    },
+    [updateActivities],
+  );
 
   const value = useMemo(
     () => ({
       activities,
       milestones,
       hydrated,
+      setActiveAccount,
       startActivity,
       submitActivity,
       failActivity,
       markMilestone,
+      inspectReceipt,
       clearSettled,
       removeActivity,
     }),
@@ -258,9 +381,11 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       clearSettled,
       failActivity,
       hydrated,
+      inspectReceipt,
       markMilestone,
       milestones,
       removeActivity,
+      setActiveAccount,
       startActivity,
       submitActivity,
     ],

@@ -27,6 +27,27 @@ export function formatMutez(raw: string | number | bigint) {
   return `${formatTokenAmount(raw, 6, 6)} XTZ`;
 }
 
+export function formatCompactTokenAmount(
+  raw: string | number | bigint,
+  decimals: number,
+) {
+  const value = BigInt(raw);
+  const divisor = 10n ** BigInt(decimals);
+  const scales = [
+    { amount: 1_000_000_000_000n, suffix: "T" },
+    { amount: 1_000_000_000n, suffix: "B" },
+    { amount: 1_000_000n, suffix: "M" },
+    { amount: 1_000n, suffix: "K" },
+  ];
+  const scale = scales.find(({ amount }) => value >= divisor * amount);
+  if (!scale) return formatTokenAmount(value, decimals, 1);
+
+  const tenths = (value * 10n) / (divisor * scale.amount);
+  const whole = tenths / 10n;
+  const fraction = tenths % 10n;
+  return `${whole}${fraction ? `.${fraction}` : ""}${scale.suffix}`;
+}
+
 export function toTokenUnits(amount: string, decimals: number) {
   const normalized = amount.trim();
   if (!/^\d+(\.\d+)?$/.test(normalized)) {

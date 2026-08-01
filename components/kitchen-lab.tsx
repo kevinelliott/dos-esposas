@@ -33,7 +33,7 @@ import {
   type KitchenAction,
 } from "@/lib/catalog";
 import { formatTokenAmount, shortAddress } from "@/lib/units";
-import { networkConfig } from "@/lib/network";
+import { hasTestnetDeployment, networkConfig } from "@/lib/network";
 import { actionDelay } from "@/lib/action-timing";
 import { friendlyWalletError } from "@/lib/wallet-errors";
 import {
@@ -337,6 +337,10 @@ export function KitchenLab() {
   const kitchen =
     process.env.NEXT_PUBLIC_KITCHEN_CONTRACT ||
     (networkConfig.isTestnet ? networkConfig.assetContract : "");
+  const kitchenReady =
+    Boolean(kitchen) &&
+    (!networkConfig.isTestnet ||
+      (kitchen === networkConfig.assetContract && hasTestnetDeployment));
   const { address, connect, callContract, status } = useWallet();
   const { balances, loading, refresh } = useInventory(address);
   const { dropsForRecipe, source: dropPolicySource } =
@@ -352,7 +356,7 @@ export function KitchenLab() {
   const [notice, setNotice] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [receipt, setReceipt] = useState<{
-    state: "pending" | "success" | "error";
+    state: "pending" | "submitted" | "success" | "error";
     title: string;
     detail: string;
     hash?: string;
@@ -396,6 +400,7 @@ export function KitchenLab() {
     return { ingredient, item, owned, needed, enough: owned >= needed };
   });
   const ready = Boolean(address) && checks.every((check) => check.enough);
+  const missingCount = checks.filter((check) => !check.enough).length;
   const busy = phase !== "idle" || status === "sending";
 
   const recipeReadiness = useMemo(
@@ -470,7 +475,7 @@ export function KitchenLab() {
       await connect();
       return;
     }
-    if (!kitchen || !ready) return;
+    if (!kitchenReady || !kitchen || !ready) return;
     setReviewOpen(false);
     setPhase("staging");
     setNotice("");
@@ -489,15 +494,17 @@ export function KitchenLab() {
         quantity,
       });
       setPhase("plating");
-      setNotice(`${recipe.action} accepted. Plating ${output.name}...`);
+      setNotice(
+        `${recipe.action} submitted. Waiting for applied chain confirmation...`,
+      );
       await actionDelay(operation.settleMs);
       setNotice(
-        `${recipe.action} submitted: ${hash}. The bonus result is recorded on-chain.`,
+        `${recipe.action} submitted: ${hash}. Bonus results are not final until the operation applies.`,
       );
       setReceipt({
-        state: "success",
-        title: `${output.name} is on the pass`,
-        detail: `Submitted ${recipe.output.amount * quantity} ${output.symbol}. Bonus rolls resolve in the same operation.`,
+        state: "submitted",
+        title: `${output.name} submitted`,
+        detail: `Submitted ${recipe.output.amount * quantity} ${output.symbol}. Wait for the activity center to verify that the operation applied.`,
         hash,
       });
       refresh();
@@ -519,7 +526,7 @@ export function KitchenLab() {
       await connect().catch(() => undefined);
       return;
     }
-    if (kitchen && ready) setReviewOpen(true);
+    if (kitchenReady && ready) setReviewOpen(true);
   };
 
   const reviewRows: TransactionReviewRow[] = [
@@ -589,20 +596,23 @@ export function KitchenLab() {
         </div>
       </header>
 
-      {!kitchen && (
+      {!kitchenReady && (
         <div className="system-notice">
           <LockKeyhole size={20} />
           <div>
-            <strong>On-chain kitchen is awaiting deployment</strong>
+            <strong>On-chain kitchen is safety-locked</strong>
             <p>
               Recipe validation is live against your wallet. Burning inputs and
               minting outputs stays locked until{" "}
-              <code>
-                {networkConfig.isTestnet
-                  ? "NEXT_PUBLIC_TESTNET_ASSET_CONTRACT"
-                  : "NEXT_PUBLIC_KITCHEN_CONTRACT"}
-              </code>{" "}
-              is configured.
+              {networkConfig.isTestnet ? (
+                <>
+                  the reviewed contract address and exact TzKT code hash are
+                  configured
+                </>
+              ) : (
+                <code>NEXT_PUBLIC_KITCHEN_CONTRACT</code>
+              )}
+              .
             </p>
           </div>
         </div>
@@ -735,28 +745,107 @@ export function KitchenLab() {
           data-kitchen-action={recipe.action.toLowerCase()}
           data-kitchen-phase={phase}
         >
-          <div className="recipe-workbench__head">
-            <span className={`action-chip action-chip--${recipe.action.toLowerCase()}`}>
-              {recipe.action}
-            </span>
-            <div className="quantity-stepper">
-              <button
-                type="button"
-                aria-label="Decrease batch"
-                onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-                disabled={busy}
-              >
-                −
-              </button>
-              <span>{quantity}x batch</span>
-              <button
-                type="button"
-                aria-label="Increase batch"
-                onClick={() => setQuantity((value) => Math.min(9, value + 1))}
-                disabled={busy}
-              >
-                +
-              </button>
+          <div className="kitchen-order-rail">
+            <div className="kitchen-order-rail__result">
+              <ItemArt item={output} />
+              <div>
+                <span className={`action-chip action-chip--${recipe.action.toLowerCase()}`}>
+                  {recipe.action}
+                </span>
+                <p>Selected recipe</p>
+                <h2>{recipe.name}</h2>
+                <span>
+                  Makes {recipe.output.amount * quantity} × {output.name}
+                </span>
+              </div>
+            </div>
+            <dl className="kitchen-order-rail__checks">
+              <div data-ready={ready}>
+                <dt>Readiness</dt>
+                <dd>
+                  {!address
+                    ? "Connect to check"
+                    : ready
+                      ? "All ingredients ready"
+                      : `${missingCount} ${missingCount === 1 ? "ingredient" : "ingredients"} missing`}
+                </dd>
+              </div>
+              <div data-disposition={mechanic.inputDisposition}>
+                <dt>Custody</dt>
+                <dd>
+                  {mechanic.burnsInputs
+                    ? "Inputs permanently burn"
+                    : "Inputs move to reserve"}
+                </dd>
+              </div>
+            </dl>
+            <div className="kitchen-order-rail__actions">
+              <div className="quantity-stepper">
+                <button
+                  type="button"
+                  aria-label="Decrease batch"
+                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                  disabled={busy}
+                >
+                  −
+                </button>
+                <span>{quantity}x batch</span>
+                <button
+                  type="button"
+                  aria-label="Increase batch"
+                  onClick={() => setQuantity((value) => Math.min(9, value + 1))}
+                  disabled={busy}
+                >
+                  +
+                </button>
+              </div>
+              <div className="recipe-actions">
+                <button
+                  className="button"
+                  type="button"
+                  onClick={() => void preview()}
+                  disabled={loading || busy}
+                >
+                  {phase === "preview" ? (
+                    <OperationIcon className="operation-icon" size={18} />
+                  ) : (
+                    <Sparkles size={18} />
+                  )}
+                  Recheck ingredients
+                </button>
+                <button
+                  className="button button--primary"
+                  type="button"
+                  onClick={() => void requestCraft()}
+                  disabled={
+                    !kitchenReady || busy || (Boolean(address) && !ready)
+                  }
+                  title={
+                    !kitchenReady
+                      ? "Reviewed kitchen deployment required"
+                      : !ready
+                        ? "Missing ingredients"
+                        : "Craft on-chain"
+                  }
+                >
+                  {!kitchenReady ? (
+                    <LockKeyhole size={18} />
+                  ) : (
+                    <Flame size={18} />
+                  )}
+                  {!kitchenReady
+                    ? "Contract locked"
+                    : !address
+                      ? "Connect wallet"
+                      : phase === "staging"
+                        ? operation.staging
+                        : phase === "wallet"
+                          ? "Open wallet..."
+                          : phase === "plating"
+                            ? "Plating..."
+                            : `${recipe.action} ${recipe.output.amount * quantity} ${output.symbol}`}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -843,20 +932,12 @@ export function KitchenLab() {
               ingredients={checks.map((check) => check.item)}
               output={output}
             />
-            <div className="kitchen-operation__status">
+            <div className="kitchen-operation__status" data-phase={phase}>
               <b>{phaseLabel}</b>
               <small>{recipe.seconds}s kitchen cycle</small>
             </div>
           </div>
 
-          <div className="recipe-output">
-            <ItemArt item={output} />
-            <div>
-              <p>Result</p>
-              <h2>{recipe.output.amount * quantity} × {output.name}</h2>
-              <span>{output.tier} / {output.symbol}</span>
-            </div>
-          </div>
           <p className="recipe-note">{recipe.note}</p>
 
           {notice && !receipt && <p className="transaction-notice">{notice}</p>}
@@ -867,41 +948,6 @@ export function KitchenLab() {
               onDismiss={() => setReceipt(null)}
             />
           )}
-          <div className="recipe-actions">
-            <button
-              className="button"
-              type="button"
-              onClick={() => void preview()}
-              disabled={loading || busy}
-            >
-              {phase === "preview" ? (
-                <OperationIcon className="operation-icon" size={18} />
-              ) : (
-                <Sparkles size={18} />
-              )}
-              Recheck ingredients
-            </button>
-            <button
-              className="button button--primary"
-              type="button"
-              onClick={() => void requestCraft()}
-              disabled={!kitchen || busy || (Boolean(address) && !ready)}
-              title={!kitchen ? "Kitchen contract required" : !ready ? "Missing ingredients" : "Craft on-chain"}
-            >
-              {!kitchen ? <LockKeyhole size={18} /> : <Flame size={18} />}
-              {!kitchen
-                ? "Contract locked"
-                : !address
-                  ? "Connect wallet"
-                  : phase === "staging"
-                    ? operation.staging
-                    : phase === "wallet"
-                      ? "Open wallet..."
-                      : phase === "plating"
-                        ? "Plating..."
-                      : `${recipe.action} ${recipe.output.amount * quantity} ${output.symbol}`}
-            </button>
-          </div>
         </section>
       </div>
       <TransactionReview

@@ -7,7 +7,7 @@ type TezBalanceResponse =
   | { error: string };
 
 export function useTezBalance(account: string) {
-  const [mutez, setMutez] = useState("");
+  const [snapshot, setSnapshot] = useState({ account: "", mutez: "" });
   const [loading, setLoading] = useState(Boolean(account));
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -23,11 +23,19 @@ export function useTezBalance(account: string) {
   }, []);
 
   useEffect(() => {
-    if (!account) return;
+    if (!account) {
+      queueMicrotask(() => {
+        setSnapshot({ account: "", mutez: "" });
+        setLoading(false);
+        setError("");
+      });
+      return;
+    }
     const controller = new AbortController();
 
     queueMicrotask(() => {
       if (!controller.signal.aborted) {
+        setSnapshot({ account, mutez: "" });
         setLoading(true);
         setError("");
       }
@@ -43,7 +51,10 @@ export function useTezBalance(account: string) {
             "error" in payload ? payload.error : "Balance lookup failed.",
           );
         }
-        setMutez(payload.mutez);
+        if (payload.account !== account) {
+          throw new Error("Balance response did not match the active account.");
+        }
+        setSnapshot({ account, mutez: payload.mutez });
       })
       .catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
@@ -64,7 +75,8 @@ export function useTezBalance(account: string) {
   );
 
   return {
-    mutez: account ? mutez : "",
+    mutez:
+      account && snapshot.account === account ? snapshot.mutez : "",
     loading: account ? loading : false,
     error: account ? error : "",
     refresh,

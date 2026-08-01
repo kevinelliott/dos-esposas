@@ -74,7 +74,7 @@ The included FA2 test contract provides all 57 Dos Esposas item types plus:
   actions, and one independent roll per configured bonus type
 - Distinct forge, checkout, trade, Replate, and kitchen transaction phases
 - Standard FA2 transfers for user-to-user trade delivery
-- Revocable asset managers for token images, descriptions, and recipe drops
+- Revocable asset managers for token images and descriptions
 - Mainnet-matched metadata, decimal scales, and initial supplies for the 39
   original assets
 - Peer-matched initial allocations for the 18 new crops, ingredients, dishes,
@@ -101,11 +101,17 @@ operation when necessary, and simulates the origination with bounded gas and
 storage limits before injecting them. It originates the legacy rehearsal FA2
 first, inserts that address into the replacement asset storage, and then
 originates the replacement FA2. Confirmation uses direct chain-state polling so
-deployment can recover from public RPC lag. It writes only public contract and
-account addresses to the git-ignored `.env.shadownet.local`; it does not save
-the private key. After origination, it applies all 57 replacement descriptions
-in eight smaller operations so the deployment remains below Tezos'
-operation-size limit.
+deployment can recover from public RPC lag. Before writing app configuration,
+the deployer reads the TzKT-indexed origination snapshot and creates
+`contracts/testnet/build/deployment-manifest.json`. This v2 attestation binds the
+chain ID, origination operation and address, administrator, complete initial
+ledger and supply, token metadata, and the immutable economic policy. Deployment
+stops if any token supply differs from the sum of its initial ledger balances or
+if the indexed snapshot differs from the compiled storage. It then writes only
+public contract and account addresses and the reviewed digests to the
+git-ignored `.env.shadownet.local`; it does not save the private key. After
+origination, it applies all 57 replacement descriptions in eight smaller
+operations so the deployment remains below Tezos' operation-size limit.
 
 ### 3. Run and test
 
@@ -141,7 +147,13 @@ npm run testnet:compile
 The compile command refreshes the checked-in artifacts in
 `contracts/testnet/build/` automatically. It produces `contract.json` and
 `storage.json` for the replacement FA2, plus `legacy-contract.json` and
-`legacy-storage.json` for the rehearsal collection.
+`legacy-storage.json` for the rehearsal collection. It also writes
+`policy-manifest.json`, whose build-pinned digest covers every token unit scale,
+recipe effect, and legacy mapping. Recompiling invalidates any existing
+deployment manifest because that deployment-specific attestation must be
+regenerated from a new indexed origination. The deployment command waits for
+TzKT and writes the indexed code hash, portable policy hash, and
+deployment-specific manifest hash to `.env.shadownet.local`.
 
 The exact burn, reserve, and random-drop policy is documented in
 [`docs/kitchen-economics.md`](docs/kitchen-economics.md). The drop calculation
@@ -187,11 +199,13 @@ npm run replacement:sync
 Allocation changes affect newly compiled storage only. An already originated
 contract must be replaced to receive different initial balances.
 
-### Manage assets and recipe drops
+### Manage asset metadata
 
 The deployment account is the contract administrator. It can update token
-metadata and recipe drops directly and grant or revoke asset managers without
-giving those accounts minting, treasury, transfer, or administrator access.
+metadata directly and grant or revoke asset managers without giving those
+accounts minting, treasury, transfer, economic-policy, or administrator access.
+Recipe ingredients, burn rules, and drops are immutable in the reviewed
+Shadownet artifact.
 
 Because Tezos contract code is immutable, contracts deployed before these
 entrypoints were added must be originated again. After deploying the updated
@@ -221,19 +235,14 @@ unset SHADOWNET_PRIVATE_KEY
 Use immutable IPFS content identifiers for production-like testing. HTTPS
 image URLs are accepted when the host is expected to remain stable.
 
-The same managers can update descriptions and replace a recipe's complete drop
-list. Drop chances use basis points, and every configured reward gets an
-independent roll:
+The same managers can update descriptions:
 
 ```bash
 npm run testnet:metadata -- description 16 "Updated description"
-npm run testnet:metadata -- drops set 0 lime:1:1200 jalapenos:1:400
-npm run testnet:metadata -- drops clear 0
 ```
 
-See [`docs/kitchen-economics.md`](docs/kitchen-economics.md) for the eight-drop
-limit, validations, event payloads, default rewards, and testnet randomness
-limitations.
+See [`docs/kitchen-economics.md`](docs/kitchen-economics.md) for event
+payloads, default rewards, and testnet randomness limitations.
 
 ## Checks
 
