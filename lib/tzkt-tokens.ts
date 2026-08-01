@@ -58,5 +58,16 @@ export async function fetchTzktHead(
     next: { revalidate: 20 },
   });
   if (!response.ok) throw new Error(`TzKT returned ${response.status}`);
-  return (await response.json()) as TzktHead;
+  const payload = (await response.json()) as Partial<TzktHead> | null;
+  if (
+    !payload ||
+    !Number.isSafeInteger(payload.level) ||
+    Number(payload.level) < 0 ||
+    typeof payload.timestamp !== "string" ||
+    Number.isNaN(Date.parse(payload.timestamp)) ||
+    payload.synced !== true
+  ) {
+    throw new Error("TzKT returned invalid or unsynced head data.");
+  }
+  return payload as TzktHead;
 }

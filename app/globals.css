@@ -5264,6 +5264,10 @@ input:focus-visible {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.asset-ledger__rail--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .asset-ledger__rail > div {
   min-width: 0;
   padding: 16px;
@@ -5988,6 +5992,11 @@ button:disabled {
 
   .asset-ledger__rail > div:nth-child(-n + 2) {
     border-bottom: 1px solid var(--ink);
+  }
+
+  .asset-ledger__rail--three > div:last-child {
+    border-top: 0;
+    grid-column: 1 / -1;
   }
 
   .asset-ledger__evidence {

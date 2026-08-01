@@ -1,6 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import type { CatalogItem } from "@/lib/catalog";
+import { DUMPSTER_WALLET, type CatalogItem } from "@/lib/catalog";
 import type { AssetMetric } from "@/lib/asset-metrics";
 import { formatCompactTokenAmount } from "@/lib/units";
 import { ItemArt } from "@/components/item-art";
@@ -57,10 +57,19 @@ export function InventoryCard({
           <small>System-held</small>
           <b>{amount(metric?.custody.systemHeldRaw)}</b>
         </span>
-        <span title="Indexer-reported burn / designated dumpster balance">
-          <small>Burn / dump</small>
+        <span
+          title={
+            DUMPSTER_WALLET
+              ? "Indexer-reported burn / designated dumpster balance"
+              : "Indexer-reported protocol burn"
+          }
+        >
+          <small>{DUMPSTER_WALLET ? "Burn / dump" : "Indexer burn"}</small>
           <b>
-            {amount(metric?.supply.indexerBurnedRaw)} / {amount(metric?.custody.dumpsterHeldRaw)}
+            {amount(metric?.supply.indexerBurnedRaw)}
+            {DUMPSTER_WALLET
+              ? ` / ${amount(metric?.custody.dumpsterHeldRaw ?? undefined)}`
+              : ""}
           </b>
         </span>
         <span title="Outstanding supply outside the known system and dumpster wallets">

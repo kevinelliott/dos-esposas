@@ -99,7 +99,9 @@ export async function GET() {
         indexerBurnedRaw: token.totalBurned,
         outstandingRaw: token.totalSupply,
         systemHeldRaw: systemBalance?.balance ?? "0",
-        dumpsterHeldRaw: dumpsterBalance?.balance ?? "0",
+        dumpsterHeldRaw: DUMPSTER_WALLET
+          ? dumpsterBalance?.balance ?? "0"
+          : undefined,
         systemWallet: SYSTEM_WALLET,
         dumpsterWallet: DUMPSTER_WALLET || undefined,
         holdersAll: token.holdersCount,

@@ -42,7 +42,11 @@ test("reads head provenance and surfaces TzKT failures", async () => {
     "https://example.invalid",
     (async () =>
       new Response(
-        JSON.stringify({ level: 10, timestamp: "now", synced: true }),
+        JSON.stringify({
+          level: 10,
+          timestamp: "2026-08-01T00:00:00Z",
+          synced: true,
+        }),
       )) as typeof fetch,
   );
   assert.equal(head.level, 10);
@@ -52,5 +56,19 @@ test("reads head provenance and surfaces TzKT failures", async () => {
       (async () => new Response("no", { status: 503 })) as typeof fetch,
     ),
     /TzKT returned 503/,
+  );
+  await assert.rejects(
+    fetchTzktHead(
+      "https://example.invalid",
+      (async () =>
+        new Response(
+          JSON.stringify({
+            level: 10,
+            timestamp: "2026-08-01T00:00:00Z",
+            synced: "false",
+          }),
+        )) as typeof fetch,
+    ),
+    /invalid or unsynced head data/,
   );
 });

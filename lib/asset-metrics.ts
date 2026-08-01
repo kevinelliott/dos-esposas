@@ -10,7 +10,7 @@ export type AssetMetricInput = {
   indexerBurnedRaw: string;
   outstandingRaw: string;
   systemHeldRaw: string;
-  dumpsterHeldRaw: string;
+  dumpsterHeldRaw?: string;
   systemWallet: string;
   dumpsterWallet?: string;
   holdersAll: number;
@@ -46,13 +46,17 @@ export type AssetMetric = {
   };
   custody: {
     systemHeldRaw: string;
-    dumpsterHeldRaw: string;
+    dumpsterHeldRaw: string | null;
     registryVersion: string;
   };
   derived: {
     outsideKnownCustodyRaw: string;
-    formula: "outstanding-systemHeld-dumpsterHeld";
-    label: "Outside known Dos Esposas and dumpster wallets";
+    formula:
+      | "outstanding-systemHeld-dumpsterHeld"
+      | "outstanding-systemHeld";
+    label:
+      | "Outside known Dos Esposas and dumpster wallets"
+      | "Outside known Dos Esposas wallets";
   };
   activity: {
     holdersAll: number;
@@ -119,7 +123,7 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
   if (input.dumpsterWallet && input.dumpsterWallet === input.systemWallet) {
     throw new Error("Wallet roles overlap.");
   }
-  if (!input.indexerSynced) {
+  if (input.indexerSynced !== true) {
     throw new Error("The indexer is not synced.");
   }
   if (!Number.isInteger(input.decimals) || input.decimals < 0) {
@@ -130,7 +134,12 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
   const burned = natural(input.indexerBurnedRaw, "Indexer burn");
   const outstanding = natural(input.outstandingRaw, "Outstanding supply");
   const systemHeld = natural(input.systemHeldRaw, "System-held balance");
-  const dumpsterHeld = natural(input.dumpsterHeldRaw, "Dumpster balance");
+  if (Boolean(input.dumpsterWallet) !== (input.dumpsterHeldRaw !== undefined)) {
+    throw new Error("Dumpster role configuration and evidence do not match.");
+  }
+  const dumpsterHeld = input.dumpsterWallet
+    ? natural(input.dumpsterHeldRaw!, "Dumpster balance")
+    : 0n;
   if (minted - burned !== outstanding) {
     throw new Error("Minted, burned, and outstanding supply do not reconcile.");
   }
@@ -172,15 +181,19 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
     },
     custody: {
       systemHeldRaw: systemHeld.toString(),
-      dumpsterHeldRaw: dumpsterHeld.toString(),
+      dumpsterHeldRaw: input.dumpsterWallet ? dumpsterHeld.toString() : null,
       registryVersion: WALLET_ROLE_REGISTRY_VERSION,
     },
     derived: {
       outsideKnownCustodyRaw: (
         outstanding - systemHeld - dumpsterHeld
       ).toString(),
-      formula: "outstanding-systemHeld-dumpsterHeld",
-      label: "Outside known Dos Esposas and dumpster wallets",
+      formula: input.dumpsterWallet
+        ? "outstanding-systemHeld-dumpsterHeld"
+        : "outstanding-systemHeld",
+      label: input.dumpsterWallet
+        ? "Outside known Dos Esposas and dumpster wallets"
+        : "Outside known Dos Esposas wallets",
     },
     activity: {
       holdersAll,
@@ -206,7 +219,11 @@ export function createAssetMetric(input: AssetMetricInput): AssetMetric {
       state: "complete",
       warnings: [
         "TzKT token, wallet, and head reads are best-effort current, not one atomic block snapshot.",
-        "Dumpster custody is designated disposal custody; key inaccessibility is not provable on-chain.",
+        ...(input.dumpsterWallet
+          ? [
+              "Dumpster custody is designated disposal custody; key inaccessibility is not provable on-chain.",
+            ]
+          : []),
       ],
       sources: input.sources,
     },

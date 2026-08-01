@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import type { AssetMetric, AssetMetricsResponse } from "@/lib/asset-metrics";
-import type { CatalogItem } from "@/lib/catalog";
+import { DUMPSTER_WALLET, type CatalogItem } from "@/lib/catalog";
 import { explorerUrl } from "@/lib/network";
 import { formatTokenAmount } from "@/lib/units";
 
@@ -44,7 +44,9 @@ export function AssetSupplyLedger({
         </span>
       </div>
 
-      <div className="asset-ledger__rail">
+      <div
+        className={`asset-ledger__rail${DUMPSTER_WALLET ? "" : " asset-ledger__rail--three"}`}
+      >
         <div>
           <span>System-held stock</span>
           <b>{value(metric?.custody.systemHeldRaw)}</b>
@@ -55,15 +57,21 @@ export function AssetSupplyLedger({
           <b>{value(metric?.supply.indexerBurnedRaw)}</b>
           <small>Already excluded from outstanding</small>
         </div>
-        <div>
-          <span>Dumpster custody</span>
-          <b>{value(metric?.custody.dumpsterHeldRaw)}</b>
-          <small>Designated disposal wallet; not provably destroyed</small>
-        </div>
+        {DUMPSTER_WALLET && (
+          <div>
+            <span>Dumpster custody</span>
+            <b>{value(metric?.custody.dumpsterHeldRaw ?? undefined)}</b>
+            <small>Designated disposal wallet; not provably destroyed</small>
+          </div>
+        )}
         <div>
           <span>Outside known custody</span>
           <b>{value(metric?.derived.outsideKnownCustodyRaw)}</b>
-          <small>Outstanding − system-held − dumpster</small>
+          <small>
+            {DUMPSTER_WALLET
+              ? "Outstanding − system-held − dumpster"
+              : "Outstanding − system-held"}
+          </small>
         </div>
       </div>
 
@@ -87,7 +95,9 @@ export function AssetSupplyLedger({
               <span>Level {metric.freshness.tokenLastLevel.toLocaleString("en-US")} · {dateTime(metric.freshness.tokenLastTime)}</span>
             </p>
             <p>
-              Reads are reconciled but not atomic. Dumpster custody is kept separate from protocol burn.
+              {DUMPSTER_WALLET
+                ? "Reads are reconciled but not atomic. Dumpster custody is kept separate from protocol burn."
+                : "Reads are reconciled but not atomic. No dumpster wallet role is configured on this network."}
             </p>
             <a href={explorerUrl(`${item.contract}/tokens/${item.tokenId}`)} target="_blank" rel="noreferrer">
               Inspect source on TzKT <ExternalLink size={15} aria-hidden="true" />

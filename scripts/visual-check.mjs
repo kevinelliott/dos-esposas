@@ -147,8 +147,9 @@ async function checkAssetMetricCard(page, network, name) {
 async function checkAssetLedger(page, network, name) {
   const ledger = page.locator(".asset-ledger");
   await ledger.waitFor();
-  if ((await ledger.locator(".asset-ledger__rail > div").count()) !== 4) {
-    throw new Error(`${name} does not expose four primary ledger cells`);
+  const expectedCells = network === "mainnet" ? 4 : 3;
+  if ((await ledger.locator(".asset-ledger__rail > div").count()) !== expectedCells) {
+    throw new Error(`${name} does not expose ${expectedCells} primary ledger cells`);
   }
   const actions = page.locator(".detail-actions");
   const [actionBox, ledgerBox] = await Promise.all([

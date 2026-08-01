@@ -58,12 +58,30 @@ test("fails closed on supply, custody, role, holder, or indexer drift", () => {
     { ...input, dumpsterWallet: input.systemWallet },
     { ...input, holdersAll: 1 },
     { ...input, indexerSynced: false },
+    { ...input, indexerSynced: "false" as unknown as boolean },
     { ...input, systemHeldRaw: "not-a-nat" },
     { ...input, indexerHeadTime: "not-a-time" },
+    { ...input, dumpsterWallet: undefined },
+    { ...input, dumpsterHeldRaw: undefined },
   ];
   for (const candidate of invalid) {
     assert.throws(() => createAssetMetric(candidate));
   }
+});
+
+test("omits an unconfigured dumpster role instead of manufacturing zero", () => {
+  const metric = createAssetMetric({
+    ...input,
+    dumpsterWallet: undefined,
+    dumpsterHeldRaw: undefined,
+  });
+  assert.equal(metric.custody.dumpsterHeldRaw, null);
+  assert.equal(metric.derived.formula, "outstanding-systemHeld");
+  assert.equal(metric.activity.holdersOutsideKnownCustody, 19);
+  assert.equal(
+    metric.derived.outsideKnownCustodyRaw,
+    "900719925474099299000000",
+  );
 });
 
 test("a successfully absent wallet balance can be represented as zero", () => {
