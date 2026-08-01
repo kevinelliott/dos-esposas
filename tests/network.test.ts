@@ -61,10 +61,13 @@ test("missing and unknown network selection fail closed", () => {
 
 test("ordinary development is localnet and Shadownet is explicit", () => {
   const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+  const gitignore = readFileSync(".gitignore", "utf8");
   assert.match(scripts.dev, /run-network\.mjs localnet dev/);
   assert.match(scripts.build, /run-network\.mjs localnet build/);
   assert.match(scripts["dev:shadownet"], /run-network\.mjs shadownet dev/);
   assert.match(scripts.start, /run-network\.mjs localnet start/);
   assert.match(scripts["start:shadownet"], /run-network\.mjs shadownet start/);
+  assert.match(scripts.typecheck, /^next typegen && tsc /);
+  assert.match(gitignore, /^\/next-env\.d\.ts$/m);
   assert.equal(Object.values(scripts).some((value) => /run-network\.mjs mainnet/.test(String(value))), false);
 });

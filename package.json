@@ -11,7 +11,7 @@
     "start": "node scripts/run-network.mjs localnet start",
     "start:shadownet": "node scripts/run-network.mjs shadownet start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit --incremental false",
+    "typecheck": "next typegen && tsc --noEmit --incremental false",
     "test": "node --env-file=.env.localnet --test tests/*.test.ts",
     "verify:ui": "node scripts/visual-check.mjs",
     "mainnet:sync": "node scripts/sync-mainnet-assets.mjs",

@@ -4,6 +4,7 @@ node_modules
 /.next
 /.next-localnet
 /.next-shadownet
+/next-env.d.ts
 /out
 /test-results
 /playwright-report
