@@ -1,7 +1,9 @@
 # Dos Esposas
 
 A pixel-inspired Next.js interface for the Dos Esposas FA2 catalog on Tezos.
-It supports the live mainnet collection and a complete Shadownet test lab.
+Ordinary development targets a local Tezos sandbox; Shadownet is reserved for
+explicit final testing, and the product can still be built for live mainnet
+through its separate release workflow.
 
 ## Features
 
@@ -18,35 +20,167 @@ It supports the live mainnet collection and a complete Shadownet test lab.
   recursively expanded base-ingredient costs
 - **Replate** conversion for exchanging original issues for matching new assets
 - Local trade proposals with real wallet-signed FA2 delivery
-- Contract-gated marketplace checkout and kitchen crafting
+- Safety-locked marketplace checkout and contract-gated kitchen crafting
 - Shadownet starter claims, per-asset and full-catalog minting, test
-  purchases, recipes, and FA2 trades
+  recipe rehearsals, signed offers, and FA2 delivery
 
-The project intentionally does not accept purchase funds or burn recipe inputs
-on mainnet unless the relevant contract address is configured. The original
-mainnet Dos Esposas asset contracts are standard FA2 tokens; they do not provide
-marketplace checkout, atomic trades, or recipe execution.
+The current release does not accept checkout funds on any profile. Shadownet
+checkout remains safety-locked because the rehearsal contract does not enforce
+price or stock on-chain, and the Mainnet profile rejects all wallet signing and
+operations. The original Mainnet Dos Esposas asset contracts are standard FA2
+tokens; they do not provide marketplace checkout, atomic trades, or recipe
+execution.
 
-## Development
+## Local-first lifecycle
+
+The canonical chain runbook is
+`REPOS/project-crypt-tezos-localnet/README.md` in the shared Buzz workspace.
+This section records the complete Dos Esposas path from workstation setup
+through local development, Shadownet promotion, and return to local work.
+
+### 1. One-time setup
 
 ```bash
 npm install
-cp env.example .env.local
+npm --prefix ../project-crypt-tezos-localnet run localnet:up
+npm --prefix ../project-crypt-tezos-localnet run localnet:verify
+npm test
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
+The chain must be healthy before Next.js launches. Ordinary `dev`, `test`,
+`build`, and `start` use the committed `.env.localnet` identity and never fall
+back to Shadownet or Mainnet. The app reports `localnet`; the RPC remains bound
+to `127.0.0.1:8732`.
+
+### 2. Daily local development
+
+```bash
+npm --prefix ../project-crypt-tezos-localnet run localnet:up
+npm --prefix ../project-crypt-tezos-localnet run localnet:verify
+npm run dev
+```
+
+Run the complete local gate before handing off a candidate:
+
+```bash
+npm test
+npm run lint
+npm run typecheck
+npm run build
+```
+
+`npm run build` creates `.next-localnet`; `npm start` serves that localnet build
+and repeats the chain-ID preflight. Tests load `.env.localnet` directly and
+include negative coverage for missing/unknown network selection, public localnet
+RPC or indexer values, every TzKT-backed route, and the ordinary-versus-explicit
+command boundary.
+
+The base local profile intentionally has no Dos Esposas contract deployment or
+local indexer. Contract-dependent and TzKT-backed features remain visibly and
+explicitly unavailable instead of reading Shadownet. Pure application tests,
+builds, wallet-boundary tests, contract compilation, and direct local RPC work
+remain available. Do not treat a green build as proof of local contract
+origination.
+
+### 3. Preserve or reset local chain state
+
+Preserve local contracts and operations between sessions:
+
+```bash
+../project-crypt-tezos-localnet/scripts/localnet stop
+../project-crypt-tezos-localnet/scripts/localnet up
+../project-crypt-tezos-localnet/scripts/localnet verify
+```
+
+Discard all local contracts, operations, and balance changes only when a clean
+fixture is intentional:
+
+```bash
+../project-crypt-tezos-localnet/scripts/localnet reset --yes
+../project-crypt-tezos-localnet/scripts/localnet up
+../project-crypt-tezos-localnet/scripts/localnet verify-genesis
+```
+
+Reset removes only the shared localnet's named Compose volume. It restores the
+same local chain ID and 50,000 XTZ bootstrap balances, but any prior local
+contract addresses and operation hashes are obsolete and must not be carried
+forward.
+
+### 4. Promote an exact candidate to Shadownet
+
+Shadownet is a final-test environment, not the ordinary development fallback.
+Record a clean commit and pass the complete local gate first. Then verify the
+public chain identity without mutating it:
+
+```bash
+npm --prefix ../project-crypt-tezos-localnet run shadownet:verify
+npm run build:shadownet
+```
+
+Only after those checks should a test-only operator explicitly deploy or run
+the Shadownet rehearsal described below. Keep the deployer key in the command's
+process environment or a secure ignored source; the deployer writes only public
+addresses and digests to `.env.shadownet.local`.
+
+```bash
+read -s SHADOWNET_PRIVATE_KEY
+export SHADOWNET_PRIVATE_KEY
+npm run shadownet:deploy
+unset SHADOWNET_PRIVATE_KEY
+npm run dev:shadownet
+```
+
+Before signing, confirm the wallet displays Shadownet. Preserve the exact
+commit, chain ID, contract addresses, operation hashes, TzKT reconstruction,
+deployment-manifest digest, and observed journey results. Submitted operations
+are not confirmed results, and a Shadownet pass is not Mainnet readiness.
+
+### 5. Return to local development
+
+Stop the Shadownet process, remove any exported test key, and start the ordinary
+command again:
+
+```bash
+unset SHADOWNET_PRIVATE_KEY
+npm --prefix ../project-crypt-tezos-localnet run localnet:up
+npm run dev
+```
+
+Do not copy Shadownet contract addresses, RPC URLs, TzKT URLs, or credentials
+into `.env.localnet`. The app must again render `localnet`, and indexer-backed
+features must return the controlled local unavailable state.
+
+### 6. Build an explicit Mainnet release candidate
+
+Mainnet has no development command. After separate production review, build the
+read-only Mainnet profile with `npm run build:mainnet` and serve that exact
+artifact with `npm run start:mainnet`. Both commands pin and verify Mainnet chain
+identity; ordinary `dev`, `build`, and `start` remain Localnet. Supplying any
+Mainnet mutation contract remains a separate audited release decision. This
+profile hides Direct offers, returns not-found for `/trades`, and rejects every
+wallet signing, transfer, contract-call, and batch boundary before dispatch.
+
 ## Configuration
 
 ```bash
-NEXT_PUBLIC_TEZOS_DAPP_NAME="Dos Esposas"
-NEXT_PUBLIC_TEZOS_NETWORK="mainnet"
-NEXT_PUBLIC_TEZOS_RPC_URL="https://mainnet.api.tez.ie"
+NEXT_PUBLIC_TEZOS_DAPP_NAME="Dos Esposas Local Lab"
+NEXT_PUBLIC_TEZOS_NETWORK="localnet"
+NEXT_PUBLIC_TEZOS_RPC_URL="http://127.0.0.1:8732"
+NEXT_PUBLIC_TEZOS_CHAIN_ID="NetXtJqPyJGB6Pc"
+NEXT_PUBLIC_TEZOS_INDEXER_URL=""
 NEXT_PUBLIC_MARKETPLACE_CONTRACT=""
 NEXT_PUBLIC_KITCHEN_CONTRACT=""
 NEXT_PUBLIC_MIGRATION_CONTRACT=""
 ```
+
+`npm run dev`, `npm run build`, and `npm start` verify the local RPC chain ID
+before launching. Missing, misspelled, or inconsistent network values stop the
+app. Localnet has no TzKT service, so inventory, operation confirmation, supply
+metrics, recipe policy, and deployment attestation return controlled unavailable
+responses instead of querying Shadownet or Mainnet.
 
 The marketplace adapter expects a `buy` entrypoint. The kitchen adapter expects
 a `craft` entrypoint accepting `recipe_id` and `quantity`. Leave these values
@@ -68,11 +202,11 @@ The included FA2 test contract provides all 57 Dos Esposas item types plus:
 - Atomic Replate capture and replacement minting for the 39 original assets
 - A one-time starter pantry claim of 25 units per item
 - Repeatable per-asset minting and full-catalog batch minting
-- Purchases using valueless test tez
+- A legacy `buy` entrypoint that remains unapproved and safety-locked in the app
 - Twenty-two recipes spanning eight distinct kitchen operations
 - Supply-reducing burns for hot kitchen actions, reserve transfers for cold
   actions, and one independent roll per configured bonus type
-- Distinct forge, checkout, trade, Replate, and kitchen transaction phases
+- Distinct forge, trade, Replate, and kitchen transaction phases
 - Standard FA2 transfers for user-to-user trade delivery
 - Revocable asset managers for token images and descriptions
 - Mainnet-matched metadata, decimal scales, and initial supplies for the 39
@@ -93,7 +227,7 @@ The compiled Michelson artifacts are included, so this step only needs the
 funded secret key in the current shell:
 
 ```bash
-SHADOWNET_PRIVATE_KEY="edsk..." npm run testnet:deploy
+SHADOWNET_PRIVATE_KEY="edsk..." npm run shadownet:deploy
 ```
 
 The deployer verifies Shadownet's chain ID, reveals a new account in a separate
@@ -116,14 +250,14 @@ operations so the deployment remains below Tezos' operation-size limit.
 ### 3. Run and test
 
 ```bash
-npm run dev:testnet
+npm run dev:shadownet
 ```
 
 Open [http://localhost:3000](http://localhost:3000), switch the wallet extension
 to Shadownet, connect, and use **Claim starter pantry** or open **Asset Forge**
-to mint any of the 57 asset types. Purchases and crafting then submit real
-Shadownet operations, while trade delivery uses the contract's FA2 `transfer`
-entrypoint.
+to mint any of the 57 asset types. Crafting submits real Shadownet operations,
+while signed direct-offer delivery uses the contract's FA2 `transfer`
+entrypoint. Checkout remains unavailable throughout this rehearsal.
 
 Open **Replate**, claim the legacy rehearsal set, choose one of the 39 original
 items, confirm permanent capture, and ring the Replate bell. The wallet signs
@@ -178,7 +312,7 @@ to an already deployed compatible Shadownet contract:
 read -s SHADOWNET_PRIVATE_KEY
 export SHADOWNET_PRIVATE_KEY
 printf '\n'
-npm run testnet:metadata -- descriptions sync
+npm run shadownet:metadata -- descriptions sync
 unset SHADOWNET_PRIVATE_KEY
 ```
 
@@ -215,8 +349,8 @@ contract, use a test-only administrator key to manage accounts:
 read -s SHADOWNET_PRIVATE_KEY
 export SHADOWNET_PRIVATE_KEY
 printf '\n'
-npm run testnet:metadata -- manager add tz1...
-npm run testnet:metadata -- manager remove tz1...
+npm run shadownet:metadata -- manager add tz1...
+npm run shadownet:metadata -- manager remove tz1...
 unset SHADOWNET_PRIVATE_KEY
 ```
 
@@ -228,7 +362,7 @@ one operation:
 read -s SHADOWNET_PRIVATE_KEY
 export SHADOWNET_PRIVATE_KEY
 printf '\n'
-npm run testnet:metadata -- image 16 ipfs://bafy...
+npm run shadownet:metadata -- image 16 ipfs://bafy...
 unset SHADOWNET_PRIVATE_KEY
 ```
 
@@ -238,7 +372,7 @@ image URLs are accepted when the host is expected to remain stable.
 The same managers can update descriptions:
 
 ```bash
-npm run testnet:metadata -- description 16 "Updated description"
+npm run shadownet:metadata -- description 16 "Updated description"
 ```
 
 See [`docs/kitchen-economics.md`](docs/kitchen-economics.md) for event
@@ -250,6 +384,7 @@ payloads, default rewards, and testnet randomness limitations.
 npm run lint
 npm run typecheck
 npm run build
-npm run build:testnet
+npm run build:shadownet
+npm run build:mainnet
 npm run verify:ui
 ```

@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import type { AssetMetric, AssetMetricsResponse } from "@/lib/asset-metrics";
 import { DUMPSTER_WALLET, type CatalogItem } from "@/lib/catalog";
-import { explorerUrl } from "@/lib/network";
+import { explorerUrl, networkConfig } from "@/lib/network";
 import { formatTokenAmount } from "@/lib/units";
 
 function exact(raw: string, item: CatalogItem) {
@@ -83,12 +83,12 @@ export function AssetSupplyLedger({
         {metric ? (
           <>
             <dl>
-            <div><dt>Minted</dt><dd>{value(metric.supply.mintedRaw)}</dd></div>
-            <div><dt>Outstanding supply</dt><dd>{value(metric.supply.outstandingRaw)}</dd></div>
-            <div><dt>All non-zero holders</dt><dd>{metric.activity.holdersAll.toLocaleString("en-US")}</dd></div>
-            <div><dt>Holders outside known custody</dt><dd>{metric.activity.holdersOutsideKnownCustody.toLocaleString("en-US")}</dd></div>
-            <div><dt>Indexed transfer events</dt><dd>{metric.activity.indexedTransfers.toLocaleString("en-US")}</dd></div>
-            <div><dt>Wallet-role registry</dt><dd>{metric.custody.registryVersion}</dd></div>
+              <div><dt>Minted</dt><dd>{value(metric.supply.mintedRaw)}</dd></div>
+              <div><dt>Outstanding supply</dt><dd>{value(metric.supply.outstandingRaw)}</dd></div>
+              <div><dt>All non-zero holders</dt><dd>{metric.activity.holdersAll.toLocaleString("en-US")}</dd></div>
+              <div><dt>Holders outside known custody</dt><dd>{metric.activity.holdersOutsideKnownCustody.toLocaleString("en-US")}</dd></div>
+              <div><dt>Indexed transfer events</dt><dd>{metric.activity.indexedTransfers.toLocaleString("en-US")}</dd></div>
+              <div><dt>Wallet-role registry</dt><dd>{metric.custody.registryVersion}</dd></div>
             </dl>
             <div className="asset-ledger__source">
               <p>
@@ -104,9 +104,11 @@ export function AssetSupplyLedger({
                   ? "Reads are reconciled but not atomic. Dumpster custody is kept separate from protocol burn."
                   : "Reads are reconciled but not atomic. No dumpster wallet role is configured on this network."}
               </p>
-              <a href={explorerUrl(`${item.contract}/tokens/${item.tokenId}`)} target="_blank" rel="noreferrer">
-                Inspect source on TzKT <ExternalLink size={15} aria-hidden="true" />
-              </a>
+              {networkConfig.hasIndexer && (
+                <a href={explorerUrl(`${item.contract}/tokens/${item.tokenId}`)} target="_blank" rel="noreferrer">
+                  Inspect source on TzKT <ExternalLink size={15} aria-hidden="true" />
+                </a>
+              )}
             </div>
           </>
         ) : (

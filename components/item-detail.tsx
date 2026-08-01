@@ -123,7 +123,7 @@ export function ItemDetail({ item }: { item: CatalogItem }) {
                 <Layers3 size={18} />
                 Check my balance
               </button>
-            ) : ownsItem ? (
+            ) : networkConfig.walletMutationsEnabled && ownsItem ? (
               <Link
                 className="button button--primary"
                 href={offerHref}
@@ -169,7 +169,7 @@ export function ItemDetail({ item }: { item: CatalogItem }) {
           <ChefHat size={17} />
           Cook
         </Link>
-        {address && ownsItem ? (
+        {networkConfig.walletMutationsEnabled && address && ownsItem ? (
           <Link className="button button--primary" href={offerHref}>
             <Sparkles size={17} />
             Offer

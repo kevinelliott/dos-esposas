@@ -6,7 +6,7 @@ const SIGN_REQUEST_SCOPE = "sign";
 
 type ActiveAccount = {
   address?: unknown;
-  network?: { type?: unknown };
+  network?: { type?: unknown; rpcUrl?: unknown };
   scopes?: unknown;
 };
 
@@ -50,13 +50,15 @@ export function captureWalletOperation({
   requestedAddress,
   account,
   expectedNetwork,
+  expectedRpcUrl,
 }: {
   revision: number;
   requestedAddress: string;
   account: ActiveAccount | undefined;
   expectedNetwork: string;
+  expectedRpcUrl?: string;
 }): WalletOperationSession {
-  assertDisplayedWallet(account, requestedAddress, expectedNetwork);
+  assertDisplayedWallet(account, requestedAddress, expectedNetwork, expectedRpcUrl);
   return { revision, address: requestedAddress };
 }
 
@@ -65,18 +67,20 @@ export function assertWalletOperation({
   currentRevision,
   account,
   expectedNetwork,
+  expectedRpcUrl,
 }: {
   session: WalletOperationSession;
   currentRevision: number;
   account: ActiveAccount | undefined;
   expectedNetwork: string;
+  expectedRpcUrl?: string;
 }) {
   if (currentRevision !== session.revision) {
     throw new Error(
       "The active wallet changed while preparing this request. Review and submit it again.",
     );
   }
-  assertDisplayedWallet(account, session.address, expectedNetwork);
+  assertDisplayedWallet(account, session.address, expectedNetwork, expectedRpcUrl);
 }
 
 function bindGuardedObject<T extends object>(

@@ -4,6 +4,7 @@ import type {
   RecipeDropValue,
 } from "@/lib/kitchen-drop-types";
 import { networkConfig } from "@/lib/network";
+import { indexerUnavailableReason } from "@/lib/indexer-availability";
 
 type TzktStorage = {
   recipes?: number;
@@ -47,6 +48,13 @@ export async function GET() {
     source: "defaults",
     recipes: [],
   };
+  const indexerUnavailable = indexerUnavailableReason(networkConfig);
+  if (indexerUnavailable) {
+    return NextResponse.json(
+      { ...fallback, unavailableReason: indexerUnavailable },
+      { status: 503 },
+    );
+  }
   if (!networkConfig.isTestnet || !networkConfig.assetContract) {
     return NextResponse.json(fallback);
   }

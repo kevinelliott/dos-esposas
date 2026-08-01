@@ -1,3 +1,5 @@
+import type { TezosNetwork } from "./network.ts";
+
 export const ASSET_METRICS_SCHEMA_VERSION = 1 as const;
 export const WALLET_ROLE_REGISTRY_VERSION = "2026-08-01";
 const MAX_HEAD_AGE_MS = 10 * 60 * 1000;
@@ -5,7 +7,7 @@ const MAX_FUTURE_SKEW_MS = 2 * 60 * 1000;
 const MAX_HEAD_LEVEL_SKEW = 5;
 
 export type AssetMetricInput = {
-  network: "mainnet" | "shadownet";
+  network: TezosNetwork;
   contract: string;
   tokenId: string;
   decimals: number;
@@ -33,7 +35,7 @@ export type AssetMetric = {
   schemaVersion: typeof ASSET_METRICS_SCHEMA_VERSION;
   key: string;
   identity: {
-    network: "mainnet" | "shadownet";
+    network: TezosNetwork;
     contract: string;
     tokenId: string;
     decimals: number;
@@ -86,13 +88,13 @@ export type AssetMetric = {
 export type AssetMetricsResponse =
   | {
       status: "ready";
-      network: "mainnet" | "shadownet";
+      network: TezosNetwork;
       fetchedAt: string;
       metrics: AssetMetric[];
     }
   | {
       status: "unavailable";
-      network: "mainnet" | "shadownet";
+      network: TezosNetwork;
       fetchedAt: string;
       reason: string;
       metrics: [];

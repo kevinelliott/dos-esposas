@@ -124,6 +124,34 @@ test("revalidates the revision immediately before a wallet request", () => {
   );
 });
 
+test("revalidates a custom RPC immediately before a wallet request", () => {
+  const localAccount = {
+    ...accountA,
+    network: { type: "custom", rpcUrl: "http://127.0.0.1:8732" },
+  };
+  const session = captureWalletOperation({
+    revision: 1,
+    requestedAddress: localAccount.address,
+    account: localAccount,
+    expectedNetwork: "custom",
+    expectedRpcUrl: "http://127.0.0.1:8732",
+  });
+  assert.throws(
+    () =>
+      assertWalletOperation({
+        session,
+        currentRevision: 1,
+        account: {
+          ...localAccount,
+          network: { type: "custom", rpcUrl: "http://127.0.0.1:18732" },
+        },
+        expectedNetwork: "custom",
+        expectedRpcUrl: "http://127.0.0.1:8732",
+      }),
+    /configured Localnet RPC/,
+  );
+});
+
 for (const requestKind of ["transfer", "batch"] as const) {
   test(`blocks ${requestKind} after account drift inside Taquito parameter mapping`, async () => {
     let revision = 1;

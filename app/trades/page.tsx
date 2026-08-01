@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { TradeDesk } from "@/components/trade-desk";
+import { networkConfig } from "@/lib/network";
 
 export const metadata: Metadata = {
   title: "Trade Window",
@@ -7,5 +9,6 @@ export const metadata: Metadata = {
 };
 
 export default function TradesPage() {
+  if (!networkConfig.walletMutationsEnabled) notFound();
   return <TradeDesk />;
 }

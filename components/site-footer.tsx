@@ -17,18 +17,22 @@ export function SiteFooter() {
           <Link href="/menu">Catalog</Link>
           <Link href="/kitchen">Kitchen</Link>
           <Link href="/conversions">Conversions</Link>
-          <Link href="/trades">Direct offers</Link>
-          <a
-            href={
-              networkConfig.systemWallet
-                ? explorerUrl(`${networkConfig.systemWallet}/tokens`)
-                : networkConfig.explorerUrl
-            }
-            target="_blank"
-            rel="noreferrer"
-          >
-            TzKT <ArrowUpRight size={14} />
-          </a>
+          {networkConfig.walletMutationsEnabled && (
+            <Link href="/trades">Direct offers</Link>
+          )}
+          {networkConfig.hasIndexer && (
+            <a
+              href={
+                networkConfig.systemWallet
+                  ? explorerUrl(`${networkConfig.systemWallet}/tokens`)
+                  : networkConfig.explorerUrl
+              }
+              target="_blank"
+              rel="noreferrer"
+            >
+              TzKT <ArrowUpRight size={14} />
+            </a>
+          )}
         </div>
       </div>
 

@@ -328,14 +328,16 @@ export function PantryDashboard() {
           </span>
           <ArrowRight />
         </Link>
-        <Link href="/trades">
-          <Sparkles />
-          <span>
-            <small>Signed terms</small>
-            Direct offers
-          </span>
-          <ArrowRight />
-        </Link>
+        {networkConfig.walletMutationsEnabled && (
+          <Link href="/trades">
+            <Sparkles />
+            <span>
+              <small>Signed terms</small>
+              Direct offers
+            </span>
+            <ArrowRight />
+          </Link>
+        )}
       </section>
     </div>
   );

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { networkConfig } from "@/lib/network";
+import { indexerUnavailableReason } from "@/lib/indexer-availability";
 import { resolveOperationStatus } from "@/lib/operation-status";
 
 const operationHash = /^o[1-9A-HJ-NP-Za-km-z]{50}$/;
@@ -11,6 +12,13 @@ export async function GET(request: Request) {
     return NextResponse.json(
       { error: "A valid Tezos operation hash is required." },
       { status: 400 },
+    );
+  }
+  const indexerUnavailable = indexerUnavailableReason(networkConfig);
+  if (indexerUnavailable) {
+    return NextResponse.json(
+      { error: indexerUnavailable },
+      { status: 503 },
     );
   }
 

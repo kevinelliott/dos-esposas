@@ -14,7 +14,7 @@ import {
   useActivity,
   type ActivityKind,
 } from "@/components/activity-provider";
-import { networkConfig } from "@/lib/network";
+import { assertWalletMutationAllowed, networkConfig } from "@/lib/network";
 import {
   activeWalletAddress,
 } from "@/lib/wallet-account";
@@ -116,9 +116,12 @@ const walletRuntime = new WalletRuntime<BeaconWallet>(
       import("@taquito/beacon-wallet"),
       import("@taquito/beacon-wallet/types"),
     ]);
-    const networkType = networkConfig.isTestnet
-      ? NetworkType.SHADOWNET
-      : NetworkType.MAINNET;
+    const networkType =
+      networkConfig.walletNetwork === "custom"
+        ? NetworkType.CUSTOM
+        : networkConfig.walletNetwork === "shadownet"
+          ? NetworkType.SHADOWNET
+          : NetworkType.MAINNET;
 
     const wallet = new BeaconWallet({
       name: process.env.NEXT_PUBLIC_TEZOS_DAPP_NAME ?? "Dos Esposas",
@@ -184,7 +187,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       try {
-        setAddress(activeWalletAddress(nextAccount, networkConfig.id));
+        setAddress(
+          activeWalletAddress(nextAccount, networkConfig.walletNetwork, networkConfig.rpcUrl),
+        );
         if (inFlightOperations.current > 0) {
           setError(
             "The active wallet changed while preparing a request. Review and submit it again.",
@@ -216,7 +221,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           account
         ) {
           try {
-            setAddress(activeWalletAddress(account, networkConfig.id));
+            setAddress(
+              activeWalletAddress(account, networkConfig.walletNetwork, networkConfig.rpcUrl),
+            );
           } catch {
             setAddress("");
           }
@@ -239,23 +246,29 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     try {
       await walletRuntime.connect(async (wallet, generation) => {
         let account = await wallet.client.getActiveAccount();
-        if (account && account.network.type !== networkConfig.id) {
-          await wallet.clearActiveAccount();
-          account = undefined;
+        if (account) {
+          try {
+            activeWalletAddress(account, networkConfig.walletNetwork, networkConfig.rpcUrl);
+          } catch {
+            await wallet.clearActiveAccount();
+            account = undefined;
+          }
         }
         if (!account) {
           await wallet.requestPermissions();
           account = await wallet.client.getActiveAccount();
         }
-        if (!account?.address) {
-          throw new Error("No wallet account was returned.");
-        }
+        const connectedAddress = activeWalletAddress(
+          account,
+          networkConfig.walletNetwork,
+          networkConfig.rpcUrl,
+        );
         if (!walletRuntime.isCurrent(wallet, generation)) {
           throw new Error(
             "The wallet connection changed while the request was in progress. Try again.",
           );
         }
-        setAddress(account.address);
+        setAddress(connectedAddress);
       });
       if (revision === sessionRevision.current) {
         setStatus("idle");
@@ -317,13 +330,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         revision,
         requestedAddress,
         account,
-        expectedNetwork: networkConfig.id,
+        expectedNetwork: networkConfig.walletNetwork,
+        expectedRpcUrl: networkConfig.rpcUrl,
       });
       assertWalletOperation({
         session,
         currentRevision: sessionRevision.current,
         account,
-        expectedNetwork: networkConfig.id,
+        expectedNetwork: networkConfig.walletNetwork,
+        expectedRpcUrl: networkConfig.rpcUrl,
       });
       return session;
     },
@@ -338,7 +353,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         session,
         currentRevision: sessionRevision.current,
         account,
-        expectedNetwork: networkConfig.id,
+        expectedNetwork: networkConfig.walletNetwork,
+        expectedRpcUrl: networkConfig.rpcUrl,
       });
       return wallet;
     },
@@ -375,6 +391,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const transfer = useCallback(
     async (request: TransferRequest) => {
+      assertWalletMutationAllowed();
       if (!address) throw new Error("Connect a wallet before transferring.");
       const activityId = startActivity({
         kind: "delivery",
@@ -401,7 +418,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               session: operationSession,
               currentRevision: sessionRevision.current,
               account,
-              expectedNetwork: networkConfig.id,
+              expectedNetwork: networkConfig.walletNetwork,
+              expectedRpcUrl: networkConfig.rpcUrl,
             });
           }),
         );
@@ -453,6 +471,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       parameter: unknown,
       mutez = 0,
     ) => {
+      assertWalletMutationAllowed();
       if (!address) throw new Error("Connect a wallet before transacting.");
       const activity = contractActivity(entrypoint);
       const activityId = startActivity({
@@ -475,7 +494,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               session: operationSession,
               currentRevision: sessionRevision.current,
               account,
-              expectedNetwork: networkConfig.id,
+              expectedNetwork: networkConfig.walletNetwork,
+              expectedRpcUrl: networkConfig.rpcUrl,
             });
           }),
         );
@@ -518,6 +538,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const batchContractCalls = useCallback(
     async (requests: ContractCallRequest[]) => {
+      assertWalletMutationAllowed();
       if (!address) throw new Error("Connect a wallet before transacting.");
       if (requests.length === 0) {
         throw new Error("The transaction batch is empty.");
@@ -552,7 +573,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               session: operationSession,
               currentRevision: sessionRevision.current,
               account,
-              expectedNetwork: networkConfig.id,
+              expectedNetwork: networkConfig.walletNetwork,
+              expectedRpcUrl: networkConfig.rpcUrl,
             });
           }),
         );
@@ -603,6 +625,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const signMessage = useCallback(
     async (message: string) => {
+      assertWalletMutationAllowed();
       if (!address) throw new Error("Connect a wallet before signing.");
       if (!message.trim()) throw new Error("The message to sign is empty.");
       const activityId = startActivity({
@@ -637,7 +660,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               session: session!,
               currentRevision: sessionRevision.current,
               account: activeAccount,
-              expectedNetwork: networkConfig.id,
+              expectedNetwork: networkConfig.walletNetwork,
+              expectedRpcUrl: networkConfig.rpcUrl,
             });
           },
         );

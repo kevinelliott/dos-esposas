@@ -9,6 +9,7 @@ import {
   SYSTEM_WALLET,
 } from "@/lib/catalog";
 import { hasTestnetDeployment, networkConfig } from "@/lib/network";
+import { indexerUnavailableReason } from "@/lib/indexer-availability";
 import {
   fetchAllTokenBalances,
   type TzktTokenBalance,
@@ -41,6 +42,10 @@ function indexBalances(rows: TzktTokenBalance[], role: string) {
 }
 
 export async function GET() {
+  const indexerUnavailable = indexerUnavailableReason(networkConfig);
+  if (indexerUnavailable) {
+    return unavailable(indexerUnavailable);
+  }
   if (!hasTestnetDeployment || !SYSTEM_WALLET) {
     return unavailable("Asset metrics are not available until this network deployment is configured.");
   }

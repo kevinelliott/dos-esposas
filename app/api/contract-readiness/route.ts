@@ -8,6 +8,7 @@ import {
 } from "@/lib/contract-policy";
 import { hashDeploymentManifest } from "@/lib/deployment-manifest";
 import { networkConfig } from "@/lib/network";
+import { indexerUnavailableReason } from "@/lib/indexer-availability";
 import { readTzktDeploymentManifest } from "@/lib/tzkt-deployment";
 import policyManifest from "@/contracts/testnet/build/policy-manifest.json";
 
@@ -48,11 +49,19 @@ async function fetchBigMapEntries(bigMapId: unknown): Promise<PolicyEntry[]> {
 
 export async function GET() {
   const contract = networkConfig.assetContract;
+  const indexerUnavailable = indexerUnavailableReason(networkConfig);
+  if (indexerUnavailable) {
+    return NextResponse.json({
+      ready: false,
+      contract,
+      reason: indexerUnavailable,
+    });
+  }
   if (!networkConfig.isTestnet || !contract) {
     return NextResponse.json({
       ready: false,
       contract,
-      reason: "A Shadownet asset contract is not configured.",
+      reason: `A ${networkConfig.label} asset contract is not configured.`,
     });
   }
 
